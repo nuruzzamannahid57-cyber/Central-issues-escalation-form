@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log an Issue — Carrybee Express</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #1C1B18;
+    --surface: #242220;
+    --surface-2: #2E2B26;
+    --border: #3D3A32;
+    --text: #F2EDE4;
+    --text-dim: #ABA495;
+    --text-faint: #766F60;
+    --accent: #E08A3E;
+    --red: #C4544A;
+    --green: #7A9B6E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
+  header.top{border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:24px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.04em;color:var(--accent);}
+  h1{font-family:'Fraunces',serif;font-weight:500;font-size:32px;margin:6px 0 0;letter-spacing:-.01em;}
+
+  .form-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;}
+  .form-card p.lede{color:var(--text-dim);margin:0 0 26px;font-size:14.5px;max-width:60ch;line-height:1.5;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px;}
+  .field{display:flex;flex-direction:column;gap:7px;}
+  .field.full{grid-column:1 / -1;}
+  label{font-size:12.5px;font-weight:600;color:var(--text-dim);}
+  label .req{color:var(--red);margin-left:2px;}
+  label .hint{display:block;font-weight:400;color:var(--text-faint);font-size:11.5px;margin-top:2px;}
+  input[type=text], select, textarea{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    padding:11px 12px;border-radius:8px;font-family:'Inter',sans-serif;font-size:14px;
+    outline:none;transition:border-color .15s ease;width:100%;
+  }
+  input[type=text]:focus, select:focus, textarea:focus{border-color:var(--accent);}
+  select:disabled{opacity:.45;cursor:not-allowed;}
+  .checkbox-box{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:14px 14px 6px;}
+  .checkbox-group-title{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.04em;color:var(--text-faint);text-transform:uppercase;margin:0 0 6px;}
+  .checkbox-group-title:not(:first-child){margin-top:12px;}
+  .checkbox-item{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--text);font-weight:400;padding:6px 2px;cursor:pointer;}
+  .checkbox-item input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex:none;}
+  textarea{resize:vertical;min-height:90px;line-height:1.5;font-family:'Inter',sans-serif;}
+  select{appearance:none;-webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23ABA495'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 14px center;padding-right:32px;
+  }
+  .submit-row{display:flex;align-items:center;gap:14px;margin-top:28px;}
+  button.primary{
+    background:var(--accent);color:#1C1B18;border:none;font-family:'Inter',sans-serif;
+    font-weight:700;font-size:14.5px;padding:12px 26px;border-radius:8px;cursor:pointer;
+    transition:filter .15s ease;
+  }
+  button.primary:hover{filter:brightness(1.08);}
+  .status-msg{font-size:13.5px;font-weight:600;}
+  .status-msg.ok{color:var(--green);}
+  .status-msg.err{color:var(--red);}
+  .foot-note{margin-top:16px;font-size:12px;color:var(--text-faint);}
+  @media (max-width:640px){ .grid{grid-template-columns:1fr;} }
+
+  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:380px;margin:40px auto 0;}
+  .login-card p.lede{color:var(--text-dim);margin:0 0 22px;font-size:14px;line-height:1.5;}
+  .login-card .field{margin-bottom:16px;}
+  .login-card button.primary{width:100%;}
+  #view-app{display:none;}
+  .session-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;font-size:12.5px;color:var(--text-faint);}
+  .session-row button.link{background:none;border:none;color:var(--accent);font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;padding:0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">CARRYBEE EXPRESS</span>
+    <h1>Log an Issue</h1>
+  </header>
+
+  <div id="view-login" class="login-card">
+    <p class="lede">Sign in with your Carrybee login to log an issue.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label>Email</label>
+        <input type="text" id="l-email" required placeholder="you@carrybee.com">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="text" id="l-password" required placeholder="Password">
+      </div>
+      <button type="submit" class="primary">Sign in</button>
+      <div style="margin-top:12px;"><span id="loginMsg" class="status-msg"></span></div>
+    </form>
+  </div>
+
+  <div id="view-app">
+  <div class="session-row">
+    <span id="sessionLabel"></span>
+    <button class="link" id="btnLogout">Sign out</button>
+  </div>
+  <div class="form-card">
+    <p class="lede">Log an operational issue for a consignment or merchant. Submissions here feed the escalation dashboard directly — no separate sync step.</p>
+    <form id="issueForm">
+      <div class="grid">
+
+        <div class="field full">
+          <label>Consignment ID / Merchant Name <span class="req">*</span></label>
+          <input type="text" id="f-consignment" required placeholder="e.g. CB-4471290 or Sundora">
+        </div>
+
+        <div class="field">
+          <label>Channel <span class="req">*</span></label>
+          <select id="f-channel" required>
+            <option value="" disabled selected>Choose</option>
+            <option>KAM</option>
+            <option>Contact center</option>
+            <option>Social Media</option>
+            <option>Inbound</option>
+            <option>OPS</option>
+            <option>HUB</option>
+            <option>Merchant panel</option>
+          </select>
+        </div>
+
+        <div class="field" id="field-media" style="display:none;">
+          <label>Media <span class="req">*</span></label>
+          <select id="f-media">
+            <option value="" disabled selected>Choose</option>
+            <option>Customer</option>
+            <option>Merchant</option>
+          </select>
+        </div>
+
+        <div class="field full" id="field-social-source" style="display:none;">
+          <label>Social Media Source <span class="req">*</span></label>
+          <div class="checkbox-box">
+            <div class="checkbox-group-title">Groups</div>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee Agent Community [Official]"> CarryBee Agent Community [Official]</label>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee - Merchant Support [Official]"> CarryBee - Merchant Support [Official]</label>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee Community [Official]"> CarryBee Community [Official]</label>
+            <div class="checkbox-group-title">Unofficial Groups</div>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="Unofficial Group"> Unofficial Group</label>
+            <div class="checkbox-group-title">Pages</div>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee"> CarryBee</label>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee Careers"> CarryBee Careers</label>
+            <div class="checkbox-group-title">Other</div>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="Inbox"> Inbox</label>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="Comments"> Comments</label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Zone <span class="req">*</span></label>
+          <select id="f-zone" required>
+            <option value="" disabled selected>Choose</option>
+            <option>ISD</option>
+            <option>OSD</option>
+            <option>SUB</option>
+            <option>Central Sort</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Hub Name <span class="req">*</span></label>
+          <select id="f-hub" required disabled>
+            <option value="" selected>Choose zone first</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Issue Status <span class="req">*</span></label>
+          <select id="f-status" required>
+            <option value="" disabled selected>Choose</option>
+            <option>Open</option>
+            <option>In Progress</option>
+            <option>Escalated</option>
+            <option>Resolved</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Issue Category <span class="req">*</span></label>
+          <select id="f-category" required>
+            <option value="" disabled selected>Choose</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Issue Subcategory <span class="req">*</span></label>
+          <select id="f-subcategory" required disabled>
+            <option value="" selected>Choose category first</option>
+          </select>
+        </div>
+
+        <div class="field full">
+          <label>Issue Details <span class="req">*</span></label>
+          <textarea id="f-details" required placeholder="What happened? Include any relevant context the assignee will need."></textarea>
+        </div>
+      </div>
+
+      <div class="submit-row">
+        <button type="submit" class="primary">Log issue</button>
+        <span id="formMsg" class="status-msg"></span>
+      </div>
+    </form>
+    <p class="foot-note">Logged issues appear on the escalation dashboard artifact — open that separately to review, filter, and export.</p>
+  </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = 'https://central-issues-log.onrender.com';
+
+  let authToken = null;
+  let authEmail = null;
+
+  const HUB_MAP = {"ISD": ["Uttara", "Diabari", "Khilkhet", "Mohakhali", "Badda-Nadda", "Pallabi", "60 Feet", "Mohammadpur", "Kolabagan", "Lalbagh", "Kamrangirchar", "Badda", "Jatrabari", "Khilgaon", "Dhonia", "Demra"], "SUB": ["Gazipur-Joydebpur", "Gazipur-Kapasiya", "Gazipur-Mawna", "Gazipur-Mouchak", "Gazipur-Boardbazar", "Gazipur-Kaliganj", "Savar", "Savar-Baipail", "Savar-Dhamrai", "Narayanganj", "Sonargaon", "Narayanganj-Bandar", "Narayanganj-Araihazar", "Rupganj", "Bhulta-Gawsia", "Dohar-Nawabganj", "Keraniganj-Ati Bazar", "Siddhirganj", "Keraniganj"], "OSD": ["Jhenaidah-Sadar", "Jhenaidah-Maheshpur", "Satkhira-Sadar", "Meherpur-Sadar", "Kushtia-Sadar", "Kushtia-Daulatpur", "Kushtia-Bheramara", "Jessore-Sadar", "Jessore-Sharsha", "Jessore-Manirampur", "Khulna-Sadar", "Jessore-Abhaynagar", "Bagerhat-Sadar", "Khulna-Paikgacha", "Khulna-Dumuria", "Satkhira-Kaliganj", "Bagerhat-Mongla", "Bagerhat-Morrelganj", "Chuadanga-Sadar", "Magura-Sadar", "Narail-Sadar", "Barishal-Sadar", "Barisal-Gournadi", "Barisal-Bakerganj", "Bhola-Charfassion", "Bhola-Sadar", "Pirojpur-Sadar", "Pirojpur-Mathbaria", "Barisal-Muladi", "Jhalokathi-Sadar", "Barguna-Sadar", "Patuakhali-Sadar", "Patuakhali-Galachipa", "Patuakhali-Kalapara", "Shariatpur-Sadar", "Gopalganj-Sadar", "Madaripur-Shibchar", "Madaripur-Sadar", "Faridpur-Sadar", "Gopalganj-Muksudpur", "Shariatpur-Damudya", "Munshiganj-Sirajdikhan", "Tangail-Sakhipur", "Manikganj-Sadar", "Manikganj-Singair", "Munshiganj-Sreenagar", "Tangail-Mirzapur", "Munshiganj-Sadar", "Tangail-Sadar", "Tangail-Ghatail", "Faridpur-Bhanga", "Rajbari-Sadar", "Faridpur-Boalmari", "Sylhet-Golapganj", "Sylhet-Beanibazar", "Sylhet-Sadar", "Sylhet-Jaintiapur", "Sylhet-Kanaighat", "Sylhet-Gowainghat", "Sylhet-Bishwanath", "Sylhet-Osmaninagar", "Sylhet-Fenchuganj", "Sylhet-Dakshin Surma", "Habiganj-Sadar", "Habiganj-Chunarughat", "Habiganj-Madhabpur", "Habiganj-Nabiganj", "Moulvibazar-Barlekha", "Moulvibazar-Kulaura", "Maulvibazar-Sadar", "Moulvibazar-Rajnagar", "Moulvibazar-Sreemangal", "Moulvibazar-Kamalganj", "Sunamganj-Sadar", "Sunamganj-Chhatak", "Sunamganj-Jagannathpur", "Sunamganj-Derai", "Netrokona-Sadar", "Netrakona-Mohonganj", "Jamalpur-Dewanganj", "Sherpur-Sadar", "Mymensingh-Phulpur", "Mymensingh-Bhaluka", "Mymensingh-Gaffargaon", "Mymensingh-Trishal", "Mymensingh-Sadar", "Jamalpur-Sadar", "Joypurhat-Sadar", "Bogra-Sadar", "Bogra-Sherpur", "Bogra-Dhupchanchia", "Sirajganj-Sadar", "Naogaon-Sadar", "Pabna-Bhangura", "Natore-Sadar", "Pabna-Ishwardi", "Pabna-Sadar", "Sirajganj-Shahjadpur", "Chapainawabganj-Shibganj", "Chapainawabganj-Sadar", "Sirajganj-Ullapara", "Naogaon-Patnitala", "Rajshahi-Puthia", "Rajshahi-Sadar", "Gaibandha-Sadar", "Rangpur-Sadar", "Nilphamari-Sadar", "Kurigram-Sadar", "Thakurgaon-Sadar", "Lalmonirhat-Sadar", "Rangpur-Mithapukur", "Nilphamari-Saidpur", "Gaibandha-Gobindaganj", "Panchagarh-Sadar", "Dinajpur-Nawabganj", "Nilphamari-Joldhaka", "Dinajpur-Birganj", "Dinajpur-Sadar", "Narsingdi-Sadar", "Narsingdi-Roypura", "Narsingdi-Shibpur", "Kishoreganj-Mithamain", "Kishoreganj-Pakundia", "Kishoreganj-Sadar", "Kishoreganj-Bhairab", "B.Baria-Sadar", "B.Baria-Kasba", "B.Baria-Nabinagar", "B.Baria-Bancharampur", "B.Baria-Nasirnagar", "B.Baria-Akhaura", "Comilla-Laksam", "Comilla-Sadar", "Comilla-Muradnagar", "Comilla-Chandina", "Comilla-Chauddagram", "Comilla-Daudkandi", "Comilla-Burichang", "Comilla-Nangalkot", "Comilla-Brahmanpara", "Comilla-Barura", "Comilla-Debidwar", "Chandpur-Sadar", "Chandpur-Faridganj", "Chandpur-Hajiganj", "Chandpur-Kachua", "Chandpur-Shahrasti", "Chandpur-Matlab Dakshin", "Noakhali-Senbagh", "Noakhali-Companiganj", "Noakhali-Sadar", "Noakhali-Chatkhil", "Noakhali-Subarnachar", "Noakhali-Begumganj", "Lakshmipur-Kamalnagar", "Lakshmipur-Ramganj", "Lakshmipur-Raipur", "Lakshmipur-Sadar", "Cox's Bazar-Chakaria", "Cox's Bazar-Maheshkhali", "Cox's Bazar-Ramu", "Cox's Bazar-Sadar", "Cox's Bazar-Teknaf", "Cox's Bazar-Ukhia", "CTG-Halishahar", "CTG-Nasirabad", "CTG-Patenga", "CTG-Patiya", "CTG-Fatikchari", "CTG-Raozan", "CTG-Satkania", "CTG-Sitakunda", "Feni-Chhagalnaiya", "Feni-Daganbhuya", "Feni-Sadar", "Feni-Sonagazi", "Khagrachari-Sadar", "Rangamati-Sadar", "Bandarban-Sadar", "CTG-Anwara", "CTG-Banshkhali", "CTG-Rangunia", "CTG-Hathazari", "CTG-Mirsarai"], "Central Sort": ["Central Sort"]};
+
+  const CATEGORY_MAP = {
+    "Delivery Delay": ["Hub processing delay","Rider unavailable","Address / location issue","Weather or force majeure","Traffic / distance issue","Customer unreachable","Vehicle breakdown"],
+    "Payment Issue": ["COD not remitted","Payment delay","Wrong amount collected","Payment not updated in system","Bank / transfer issue"],
+    "Pickup": ["Pickup not done","Pickup delay","Rider no-show","Wrong pickup address","Pickup rescheduled without notice"],
+    "Return Delay": ["Return not initiated","Return stuck at hub","Return rider not assigned","Delayed return to merchant"],
+    "Return Exchange": ["Exchange not processed","Wrong item returned","Exchange delay","Customer refused exchange"],
+    "Reverse Pickup": ["Reverse pickup not scheduled","Reverse pickup delay","Rider refused reverse pickup","Customer unavailable for reverse pickup"],
+    "Charge Extra/Wrong COD": ["Extra charge without notice","Wrong COD amount entered","Weight discrepancy charge","Unauthorized charge"],
+    "Damage": ["Product damaged in transit","Packaging damaged","Damage at hub","Damage during handling"],
+    "No Entry/Cancelled": ["Order cancelled by rider","No entry in system","Cancelled without reason","Duplicate entry"],
+    "Unprofessionalism": ["Rider misbehavior","Hub staff misbehavior","Rude communication","Inappropriate conduct"],
+    "Wrong Routing": ["Sent to wrong hub","Wrong zone assignment","Misrouted parcel","Routing system error"],
+    "Wrong Tag/Parcel Swapped": ["Tag mismatch","Parcel swapped with another order","Barcode / label error","Wrong merchant tag"],
+    "Breach of CLOSEBOX": ["Seal broken before delivery","Unauthorized box opening","Tampering reported by customer","Missing items after breach"],
+    "Urgent Delivery": ["Same-day delivery request","VIP / priority merchant request","Time-sensitive product","Festival / peak season request"]
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  const MEDIA_CHANNELS = ['Social Media', 'Inbound'];
+  const channelSelect = $('f-channel');
+  const mediaField = $('field-media');
+  const mediaSelect = $('f-media');
+  const socialSourceField = $('field-social-source');
+  const socialSourceBoxes = document.querySelectorAll('.social-source-opt');
+  function resetSocialSource(){
+    socialSourceField.style.display = 'none';
+    socialSourceBoxes.forEach(cb => { cb.checked = false; });
+  }
+  function getSocialSource(){
+    return Array.from(socialSourceBoxes).filter(cb => cb.checked).map(cb => cb.value);
+  }
+  channelSelect.addEventListener('change', ()=>{
+    if(MEDIA_CHANNELS.includes(channelSelect.value)){
+      mediaField.style.display = '';
+      mediaSelect.required = true;
+    } else {
+      mediaField.style.display = 'none';
+      mediaSelect.required = false;
+      mediaSelect.value = '';
+    }
+    if(channelSelect.value === 'Social Media'){
+      socialSourceField.style.display = '';
+    } else {
+      resetSocialSource();
+    }
+  });
+
+  const zoneSelect = $('f-zone');
+  zoneSelect.addEventListener('change', ()=>{
+    const hub = $('f-hub');
+    hub.innerHTML = '';
+    const hubs = HUB_MAP[zoneSelect.value] || [];
+    if(hubs.length){
+      hub.disabled = false;
+      const ph = document.createElement('option');
+      ph.value=''; ph.disabled=true; ph.selected=true; ph.textContent='Choose';
+      hub.appendChild(ph);
+      hubs.forEach(h=>{
+        const o = document.createElement('option'); o.value=h; o.textContent=h;
+        hub.appendChild(o);
+      });
+    } else {
+      hub.disabled = true;
+      const ph = document.createElement('option'); ph.textContent='Choose zone first';
+      hub.appendChild(ph);
+    }
+  });
+
+  const catSelect = $('f-category');
+  Object.keys(CATEGORY_MAP).forEach(cat=>{
+    const o = document.createElement('option');
+    o.value = cat; o.textContent = cat;
+    catSelect.appendChild(o);
+  });
+  catSelect.addEventListener('change', ()=>{
+    const sub = $('f-subcategory');
+    sub.innerHTML = '';
+    const subs = CATEGORY_MAP[catSelect.value] || [];
+    if(subs.length){
+      sub.disabled = false;
+      const ph = document.createElement('option');
+      ph.value=''; ph.disabled=true; ph.selected=true; ph.textContent='Choose';
+      sub.appendChild(ph);
+      subs.forEach(s=>{
+        const o = document.createElement('option'); o.value=s; o.textContent=s;
+        sub.appendChild(o);
+      });
+    } else {
+      sub.disabled = true;
+      const ph = document.createElement('option'); ph.textContent='Choose category first';
+      sub.appendChild(ph);
+    }
+  });
+
+  // ---------- login ----------
+  $('loginForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const msg = $('loginMsg');
+    msg.textContent = 'Signing in…'; msg.className='status-msg';
+    try{
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          email: $('l-email').value.trim(),
+          password: $('l-password').value
+        })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        msg.textContent = data.error || 'Sign in failed.'; msg.classList.add('err');
+        return;
+      }
+      authToken = data.token;
+      authEmail = data.email;
+      $('sessionLabel').textContent = data.name || authEmail;
+      $('view-login').style.display = 'none';
+      $('view-app').style.display = 'block';
+    }catch(err){
+      msg.textContent = 'Could not reach the server.'; msg.classList.add('err');
+    }
+  });
+
+  $('btnLogout').addEventListener('click', ()=>{
+    authToken = null; authEmail = null;
+    $('loginForm').reset();
+    $('view-app').style.display = 'none';
+    $('view-login').style.display = 'block';
+  });
+
+  $('issueForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const msg = $('formMsg');
+
+    if(channelSelect.value === 'Social Media' && getSocialSource().length === 0){
+      msg.textContent = 'Select at least one Social Media source.'; msg.className='status-msg err';
+      return;
+    }
+
+    msg.textContent = 'Saving…'; msg.className='status-msg';
+
+    const issue = {
+      consignment: $('f-consignment').value.trim(),
+      channel: $('f-channel').value,
+      media: MEDIA_CHANNELS.includes($('f-channel').value) ? $('f-media').value : '',
+      socialSource: channelSelect.value === 'Social Media' ? getSocialSource().join(', ') : '',
+      zone: $('f-zone').value,
+      hub: $('f-hub').value.trim(),
+      status: $('f-status').value,
+      category: $('f-category').value,
+      subcategory: $('f-subcategory').value,
+      details: $('f-details').value.trim()
+    };
+
+    try{
+      const res = await fetch(`${API_BASE}/api/issues`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(issue)
+      });
+      const data = await res.json();
+      if(!res.ok){
+        if(res.status === 401){
+          msg.textContent = 'Session expired — please sign in again.'; msg.classList.add('err');
+          $('btnLogout').click();
+          return;
+        }
+        msg.textContent = data.error || 'Could not save — try again.'; msg.classList.add('err');
+        return;
+      }
+      msg.textContent = 'Issue logged.'; msg.classList.add('ok');
+      $('issueForm').reset();
+      $('f-hub').innerHTML = '<option value="" selected>Choose zone first</option>';
+      $('f-hub').disabled = true;
+      $('f-subcategory').innerHTML = '<option value="" selected>Choose category first</option>';
+      $('f-subcategory').disabled = true;
+      mediaField.style.display = 'none';
+      mediaSelect.required = false;
+      resetSocialSource();
+      setTimeout(()=>{ msg.textContent=''; }, 3000);
+    }catch(err){
+      msg.textContent = 'Could not reach the server — try again.'; msg.classList.add('err');
+    }
+  });
+</script>
+</body>
+</html>
