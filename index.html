@@ -199,6 +199,17 @@
           <label>Issue Details <span class="req">*</span></label>
           <textarea id="f-details" required placeholder="What happened? Include any relevant context the assignee will need."></textarea>
         </div>
+
+        <div class="field full">
+          <label>Attachments <span style="color:var(--text-dim, #888); font-weight:400;">(photo or voice note, optional)</span></label>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <input type="file" id="f-attach-photo" accept="image/*" capture="environment" multiple style="display:none;">
+            <button type="button" class="ghost" id="btnAddPhoto">📷 Add photo</button>
+            <input type="file" id="f-attach-audio" accept="audio/*" capture multiple style="display:none;">
+            <button type="button" class="ghost" id="btnAddAudio">🎙️ Add voice note</button>
+          </div>
+          <div id="attachList" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;"></div>
+        </div>
       </div>
 
       <div class="submit-row">
@@ -237,6 +248,61 @@
   };
 
   const $ = (id) => document.getElementById(id);
+
+  // ---------- attachments (photo / voice note) ----------
+  // Kept as base64 data URLs client-side and sent inline with the issue
+  // payload — no separate upload step/endpoint. 6MB/file cap keeps a
+  // multi-attachment submission comfortably under the server's 20mb JSON
+  // body limit (base64 runs ~33% larger than the source file).
+  const MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024;
+  let pendingAttachments = []; // { type, filename, mimeType, dataUrl }
+
+  function renderAttachList(){
+    const box = $('attachList');
+    box.innerHTML = '';
+    pendingAttachments.forEach((a, idx) => {
+      const chip = document.createElement('div');
+      chip.style.cssText = 'display:flex;align-items:center;gap:6px;background:var(--panel,#f4f3f0);border-radius:8px;padding:6px 10px;font-size:13px;';
+      chip.innerHTML = `<span>${a.type === 'photo' ? '📷' : '🎙️'} ${a.filename || a.type}</span>`;
+      const rm = document.createElement('button');
+      rm.type = 'button'; rm.textContent = '✕'; rm.className = 'link';
+      rm.style.cssText = 'padding:0;font-size:13px;';
+      rm.addEventListener('click', () => { pendingAttachments.splice(idx, 1); renderAttachList(); });
+      chip.appendChild(rm);
+      box.appendChild(chip);
+    });
+  }
+
+  function fileToDataUrl(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleAttachmentFiles(fileList, type){
+    const msg = $('formMsg');
+    for (const file of Array.from(fileList)) {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        msg.textContent = `${file.name} is too large (max 6MB per file).`; msg.className = 'status-msg err';
+        continue;
+      }
+      try {
+        const dataUrl = await fileToDataUrl(file);
+        pendingAttachments.push({ type, filename: file.name, mimeType: file.type, dataUrl });
+      } catch {
+        msg.textContent = `Could not read ${file.name}.`; msg.className = 'status-msg err';
+      }
+    }
+    renderAttachList();
+  }
+
+  $('btnAddPhoto').addEventListener('click', () => $('f-attach-photo').click());
+  $('btnAddAudio').addEventListener('click', () => $('f-attach-audio').click());
+  $('f-attach-photo').addEventListener('change', (e) => { handleAttachmentFiles(e.target.files, 'photo'); e.target.value = ''; });
+  $('f-attach-audio').addEventListener('change', (e) => { handleAttachmentFiles(e.target.files, 'audio'); e.target.value = ''; });
 
   const MEDIA_CHANNELS = ['Social Media', 'Inbound'];
   const channelSelect = $('f-channel');
@@ -371,7 +437,8 @@
       status: $('f-status').value,
       category: $('f-category').value,
       subcategory: $('f-subcategory').value,
-      details: $('f-details').value.trim()
+      details: $('f-details').value.trim(),
+      attachments: pendingAttachments
     };
 
     try{
@@ -402,6 +469,8 @@
       mediaField.style.display = 'none';
       mediaSelect.required = false;
       resetSocialSource();
+      pendingAttachments = [];
+      renderAttachList();
       setTimeout(()=>{ msg.textContent=''; }, 3000);
     }catch(err){
       msg.textContent = 'Could not reach the server — try again.'; msg.classList.add('err');
