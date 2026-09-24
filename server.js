@@ -66,6 +66,62 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// ---------- issue event history ----------
+// Every meaningful thing that happens to an issue is appended here: logged,
+// merchant notified, hub/ops updates (with the full remark text, so earlier
+// remarks are no longer lost when a newer one overwrites issues.remarks),
+// ladder escalations, KAM re-escalations, and KAM close. Logging never blocks
+// or fails the request that triggered it.
+async function logEvent(issueId, type, { actor = null, status = null, level = null, flag = null, note = null, ts = null } = {}) {
+  try {
+    await db.execute({
+      sql: `INSERT INTO issue_events (issue_id, ts, type, actor, status, level, flag, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [issueId, ts || new Date().toISOString(), type, actor, status, level, flag, note]
+    });
+  } catch (err) {
+    console.error('logEvent failed:', err);
+  }
+}
+
+// One-time, idempotent: issues that pre-date the history table have no events,
+// so rebuild a best-effort timeline from the columns they already carry.
+// Only the LAST remark per issue was ever stored, so older remarks can't be
+// recovered — those issues simply start their real history from now on.
+async function backfillIssueEvents() {
+  const result = await db.execute({
+    sql: `SELECT id, ts, logged_by, status, merchant_notified_at, remarks, remarks_by, updated_at,
+                 reescalated_at, reescalation_count, closed_by, closed_at, merchant_informed
+          FROM issues
+          WHERE id NOT IN (SELECT DISTINCT issue_id FROM issue_events)`,
+    args: []
+  });
+  let filled = 0;
+  for (const r of result.rows) {
+    const ev = [{ ts: r.ts, type: 'logged', actor: r.logged_by }];
+    if (r.merchant_notified_at) ev.push({ ts: r.merchant_notified_at, type: 'merchant_notified' });
+    if (r.remarks || (r.updated_at && !r.closed_at)) {
+      ev.push({
+        ts: r.updated_at || r.ts, type: 'update', actor: r.remarks_by || null,
+        status: (!r.reescalated_at && !r.closed_at) ? r.status : null,
+        note: r.remarks || null
+      });
+    }
+    if (r.reescalated_at) {
+      const n = Number(r.reescalation_count) || 1;
+      ev.push({ ts: r.reescalated_at, type: 're_escalated', actor: r.logged_by, status: 'Escalated', note: n > 1 ? `Round ${n}` : null });
+    }
+    if (r.closed_at) {
+      ev.push({ ts: r.closed_at, type: 'closed', actor: r.closed_by, status: 'Resolved',
+                note: r.merchant_informed ? `Merchant informed: ${r.merchant_informed}` : null });
+    }
+    ev.sort((a, b) => new Date(a.ts) - new Date(b.ts)); // stable: ties keep insertion order
+    for (const e of ev) await logEvent(r.id, e.type, { actor: e.actor, status: e.status, note: e.note, ts: e.ts });
+    filled++;
+  }
+  if (filled) console.log(`Issue history: backfilled ${filled} issue(s).`);
+}
+
 // ---------- table setup (runs on boot, safe to re-run) ----------
 async function ensureTables() {
   await db.execute(`
@@ -150,6 +206,23 @@ async function ensureTables() {
   // escalation sweep skips any row with no level_started_at — without this,
   // every pre-existing open issue would sit outside the ladder forever.
   await db.execute(`UPDATE issues SET level_started_at = ts WHERE level_started_at IS NULL`);
+
+  // Per-issue event history (what the KAM Dashboard shows when a row is expanded).
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS issue_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      issue_id TEXT NOT NULL,
+      ts TEXT NOT NULL,
+      type TEXT NOT NULL,
+      actor TEXT,
+      status TEXT,
+      level TEXT,
+      flag TEXT,
+      note TEXT
+    )
+  `);
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_issue_events_issue ON issue_events (issue_id, ts)');
+  await backfillIssueEvents();
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS hub_assignments (
@@ -361,9 +434,12 @@ app.post('/api/issues', requireAuth, async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'L3', 'Regular', ?, ?)`,
       args: [id, ts, i.consignment, i.channel, i.media || null, i.socialSource || null, i.zone, i.hub, i.status, i.category, i.subcategory, i.details, req.user, ts, attachments]
     });
+    await logEvent(id, 'logged', { actor: req.user, status: i.status, level: 'L3', flag: 'Regular', ts });
     notifyMerchant({ id, consignment: i.consignment }).then(async ok => {
       if (ok) {
-        await db.execute({ sql: 'UPDATE issues SET merchant_notified_at = ? WHERE id = ?', args: [new Date().toISOString(), id] });
+        const notifiedAt = new Date().toISOString();
+        await db.execute({ sql: 'UPDATE issues SET merchant_notified_at = ? WHERE id = ?', args: [notifiedAt, id] });
+        await logEvent(id, 'merchant_notified', { ts: notifiedAt });
       }
     }).catch(err => console.error('notifyMerchant failed:', err));
     res.json({ ok: true, id, ts });
@@ -420,6 +496,7 @@ app.patch('/api/issues/:id/close', requireAuth, async (req, res) => {
             WHERE id = ?`,
       args: [merchantInformed, req.user, now, now, req.params.id]
     });
+    await logEvent(req.params.id, 'closed', { actor: req.user, status: 'Resolved', note: `Merchant informed: ${merchantInformed}`, ts: now });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -460,10 +537,31 @@ app.patch('/api/issues/:id/re-escalate', requireAuth, async (req, res) => {
             WHERE id = ?`,
       args: [now, now, req.params.id]
     });
+    const round = (Number(issue.reescalation_count) || 0) + 1;
+    await logEvent(req.params.id, 're_escalated', { actor: req.user, status: 'Escalated', level: 'L3', flag: 'Regular', note: round > 1 ? `Round ${round}` : null, ts: now });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not re-escalate issue.' });
+  }
+});
+
+// Full event history for one issue (oldest first) — powers the expanded row
+// in the KAM Dashboard's Escalation log / Flagged tables.
+app.get('/api/issues/:id/history', requireAuth, async (req, res) => {
+  try {
+    const result = await db.execute({
+      sql: `SELECT e.ts, e.type, e.actor, COALESCE(u.name, e.actor) AS actor_name, e.status, e.level, e.flag, e.note
+            FROM issue_events e
+            LEFT JOIN users u ON u.email = e.actor
+            WHERE e.issue_id = ?
+            ORDER BY e.ts ASC, e.id ASC`,
+      args: [req.params.id]
+    });
+    res.json({ events: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load history.' });
   }
 });
 
@@ -629,6 +727,7 @@ app.patch('/api/ops/issues/:id', requireAuth, async (req, res) => {
         ? [status, remarks || null, req.user, new Date().toISOString(), new Date().toISOString(), responseStatus, req.params.id]
         : [status, remarks || null, req.user, new Date().toISOString(), new Date().toISOString(), req.params.id]
     });
+    await logEvent(req.params.id, 'update', { actor: req.user, status, note: remarks || null });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -902,6 +1001,7 @@ async function runEscalationSweep() {
       let started = issue.level_started_at ? new Date(issue.level_started_at).getTime() : null;
       if (!started || Number.isNaN(started)) continue;
       let advanced = false;
+      const steps = [];
       // Walk every level this issue has actually earned in one pass — e.g. an
       // issue that's sat for 3 days should land on "Very critical" in a
       // single sweep, not crawl up one level per 10-minute run. Each step
@@ -921,12 +1021,14 @@ async function runEscalationSweep() {
         level = rule.nextLevel;
         status = rule.nextStatus;
         advanced = true;
+        steps.push({ ts: new Date(started).toISOString(), level, flag: status });
       }
       if (!advanced) continue;
       await db.execute({
         sql: `UPDATE issues SET escalation_level = ?, response_status = ?, level_started_at = ? WHERE id = ?`,
         args: [level, status, new Date(started).toISOString(), issue.id]
       });
+      for (const st of steps) await logEvent(issue.id, 'escalated', { level: st.level, flag: st.flag, ts: st.ts });
       escalated++;
     } catch (err) {
       console.error(`Escalation sweep: issue ${issue.id} failed:`, err);
