@@ -135,7 +135,10 @@ async function ensureTables() {
     // was raised/last refreshed, so the detail view has something to show
     // even if the tracking source is temporarily unreachable later. JSON
     // array of { status, location, ts }.
-    'ALTER TABLE issues ADD COLUMN parcel_journey TEXT'
+    'ALTER TABLE issues ADD COLUMN parcel_journey TEXT',
+    // KAM re-escalation: when it last happened and how many rounds so far.
+    'ALTER TABLE issues ADD COLUMN reescalated_at TEXT',
+    'ALTER TABLE issues ADD COLUMN reescalation_count INTEGER DEFAULT 0'
   ]) {
     try {
       await db.execute(stmt);
@@ -421,6 +424,46 @@ app.patch('/api/issues/:id/close', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not close issue.' });
+  }
+});
+
+// KAM-side re-escalate: the KAM who logged the issue can push it back through
+// the escalation ladder when the hub's response didn't actually fix it —
+// including after Ops marked it Resolved. It flips status back to Escalated,
+// restarts the ladder at L3 / Regular with a fresh clock, and counts the round.
+// Guards: own issue only, not already closed by the KAM, must have a response
+// to push back on, and only once per response — after a re-escalation the hub
+// has to reply (bumping updated_at) before it can be re-escalated again.
+app.patch('/api/issues/:id/re-escalate', requireAuth, async (req, res) => {
+  try {
+    const existing = await db.execute({ sql: 'SELECT * FROM issues WHERE id = ?', args: [req.params.id] });
+    const issue = existing.rows[0];
+    if (!issue) return res.status(404).json({ error: 'Issue not found.' });
+    if ((issue.logged_by || '').toLowerCase() !== req.user.toLowerCase()) {
+      return res.status(403).json({ error: 'You can only re-escalate issues you logged yourself.' });
+    }
+    if (issue.closed_by) {
+      return res.status(400).json({ error: 'You already closed this issue.' });
+    }
+    if (!issue.remarks) {
+      return res.status(400).json({ error: 'No response on this issue yet — nothing to re-escalate.' });
+    }
+    if (issue.reescalated_at &&
+        (!issue.updated_at || new Date(issue.updated_at) <= new Date(issue.reescalated_at))) {
+      return res.status(400).json({ error: 'Already re-escalated — waiting for a new response.' });
+    }
+    const now = new Date().toISOString();
+    await db.execute({
+      sql: `UPDATE issues
+            SET status = 'Escalated', escalation_level = 'L3', response_status = 'Regular',
+                level_started_at = ?, reescalated_at = ?, reescalation_count = COALESCE(reescalation_count, 0) + 1
+            WHERE id = ?`,
+      args: [now, now, req.params.id]
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not re-escalate issue.' });
   }
 });
 
