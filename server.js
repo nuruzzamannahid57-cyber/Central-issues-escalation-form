@@ -36,7 +36,10 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Raised from the default 100kb so photo/audio attachments (sent as base64
+// data URLs in the issue payload) fit. 20mb of base64 ~= 14-15mb of real
+// file data, comfortably above what a phone photo or a short voice note needs.
+app.use(express.json({ limit: '20mb' }));
 app.use(express.static(__dirname));
 
 // ---------- in-memory session store ----------
@@ -120,7 +123,19 @@ async function ensureTables() {
     // confirm the merchant was told before closing, and who/when.
     'ALTER TABLE issues ADD COLUMN merchant_informed TEXT',
     'ALTER TABLE issues ADD COLUMN closed_by TEXT',
-    'ALTER TABLE issues ADD COLUMN closed_at TEXT'
+    'ALTER TABLE issues ADD COLUMN closed_at TEXT',
+    // JSON array of { type: 'photo'|'audio', filename, mimeType, dataUrl }.
+    // Stored inline as base64 data URLs — fine at this volume, and it means
+    // no separate object-storage bucket/credentials to set up. If the volume
+    // of attachments grows a lot, swap this for real object storage (S3/R2/
+    // Cloudinary) and store just the URL here instead — same column, just
+    // shorter values.
+    'ALTER TABLE issues ADD COLUMN attachments TEXT',
+    // Snapshot of the parcel's tracking milestones at the moment the issue
+    // was raised/last refreshed, so the detail view has something to show
+    // even if the tracking source is temporarily unreachable later. JSON
+    // array of { status, location, ts }.
+    'ALTER TABLE issues ADD COLUMN parcel_journey TEXT'
   ]) {
     try {
       await db.execute(stmt);
@@ -323,15 +338,25 @@ app.post('/api/issues', requireAuth, async (req, res) => {
   if (missing.length) {
     return res.status(400).json({ error: `Missing fields: ${missing.join(', ')}` });
   }
+  // Attachments come in as [{ type: 'photo'|'audio', filename, mimeType, dataUrl }].
+  // Validated loosely here — the point is to reject obvious garbage, not to
+  // be a full MIME sniffer.
+  let attachments = null;
+  if (Array.isArray(i.attachments) && i.attachments.length) {
+    const cleaned = i.attachments
+      .filter(a => a && typeof a.dataUrl === 'string' && a.dataUrl.startsWith('data:') && ['photo', 'audio'].includes(a.type))
+      .map(a => ({ type: a.type, filename: a.filename || null, mimeType: a.mimeType || null, dataUrl: a.dataUrl }));
+    if (cleaned.length) attachments = JSON.stringify(cleaned);
+  }
   const id = Date.now() + '-' + crypto.randomBytes(4).toString('hex');
   const ts = new Date().toISOString();
   try {
     await db.execute({
       sql: `INSERT INTO issues
               (id, ts, consignment, channel, media, social_source, zone, hub, status, category, subcategory, details, logged_by,
-               escalation_level, response_status, level_started_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'L3', 'Regular', ?)`,
-      args: [id, ts, i.consignment, i.channel, i.media || null, i.socialSource || null, i.zone, i.hub, i.status, i.category, i.subcategory, i.details, req.user, ts]
+               escalation_level, response_status, level_started_at, attachments)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'L3', 'Regular', ?, ?)`,
+      args: [id, ts, i.consignment, i.channel, i.media || null, i.socialSource || null, i.zone, i.hub, i.status, i.category, i.subcategory, i.details, req.user, ts, attachments]
     });
     notifyMerchant({ id, consignment: i.consignment }).then(async ok => {
       if (ok) {
@@ -396,6 +421,29 @@ app.patch('/api/issues/:id/close', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not close issue.' });
+  }
+});
+
+// Parcel journey (tracking milestones) for the detail view. Currently just
+// returns whatever was snapshotted onto the row at raise-time (parcel_journey
+// column) or [] if none — there's no live tracking source wired up yet.
+// TODO once we know which system holds the tracking timeline (CarryBee's own
+// parcel-tracking DB/API, or a Google Sheet), replace the body of this route
+// with a live lookup by `consignment`, keyed the same way merchant_phone/
+// Assigned Group lookups already are elsewhere in this system.
+app.get('/api/issues/:id/parcel-journey', requireAuth, async (req, res) => {
+  try {
+    const result = await db.execute({ sql: 'SELECT parcel_journey FROM issues WHERE id = ?', args: [req.params.id] });
+    const row = result.rows[0];
+    if (!row) return res.status(404).json({ error: 'Issue not found.' });
+    let journey = [];
+    if (row.parcel_journey) {
+      try { journey = JSON.parse(row.parcel_journey); } catch { journey = []; }
+    }
+    res.json({ journey, source: 'stub' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not fetch parcel journey.' });
   }
 });
 
