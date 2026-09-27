@@ -43,3 +43,36 @@ curl -X POST https://YOUR-SERVICE.onrender.com/api/auth/register \
 - `POST /api/auth/login` — `{ email, password }` → `{ token, email }`
 - `POST /api/issues` — `Authorization: Bearer <token>` + the issue fields → saves a row
 - `GET /api/issues` — `Authorization: Bearer <token>` → all issues (for the dashboard, later)
+
+## Parcel Journey tab
+
+After sign-in the form page has two tabs: **Log an Issue** and **Parcel Journey**.
+The Parcel Journey is the hub-wise SLA engine from TQM V4, running on Turso:
+
+- **Data:** an admin uploads the parcel export (.xlsx / .csv) from the tab. The
+  browser keeps only the columns the engine needs and sends them in chunks to
+  `pj_parcels`; the new file replaces the old one only once every chunk has
+  arrived. The SLA Hub Matrix upload is stored in `sla_hub_matrix`.
+  `pickup_cutoff` (optional, `*` row = default, otherwise 18:00) is read if filled.
+- **Who can upload:** emails in `PARCEL_ADMINS`. If it is empty, any signed-in
+  user can.
+- **Issues:** every breached parcel, a ticked set, or a whole stage box at once
+  opens the Log an Issue fields (channel, status, category, subcategory,
+  details, attachments). One issue is created per parcel in the `issues`
+  table, with `hub` = the hub the parcel is in now and `zone` from
+  `hub-info.json` (the Hub Info list), so it appears on the Escalation
+  Dashboard, in that hub's Ops Console queue and on the escalation ladder
+  (L3). A parcel with an open issue for the same stage is skipped.
+  `issues.sla_stage` and `issues.source = 'parcel_journey'` mark these rows.
+- **Hubs nobody is assigned to** in `hub_assignments` (sort points, 3PL, …)
+  still get the issue, but no Ops Console shows it; the form warns before sending.
+
+Endpoints (all need `Authorization: Bearer <token>`): `POST /api/parcel/view`,
+`POST /api/parcel/journey`, `GET /api/parcel/trace/:cid`, `POST /api/parcel/download`,
+`GET|POST /api/parcel/sla-matrix`, `POST /api/parcel/upload/start|chunk|finish`,
+`POST /api/parcel/issues/preview`, `POST /api/parcel/issues`.
+
+To try it locally without touching the live database, point the server at a
+local file: `TURSO_DATABASE_URL=file:local.db TURSO_AUTH_TOKEN=x DAILY_REPORT_ENABLED=false npm start`,
+then open `http://localhost:3000` (the page talks to the local server when
+opened from localhost).
