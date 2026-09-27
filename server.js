@@ -20,7 +20,14 @@ const {
   MAIL_FROM,
   DAILY_REPORT_CRON = '59 23 * * *',
   DAILY_REPORT_TZ = 'Asia/Dhaka',
-  DAILY_REPORT_ENABLED = 'true'
+  DAILY_REPORT_ENABLED = 'true',
+  // Shared secret for server-to-server calls from other internal dashboards
+  // (currently: the Ad-Team Issues Dashboard's "Send to ISF" button). Set the
+  // same value in that app's environment/config. Requests carrying a valid
+  // `x-service-key` header skip the normal email/password session login and
+  // are attributed to AD_TEAM_SERVICE_NAME instead of a real user.
+  AD_TEAM_SERVICE_KEY,
+  AD_TEAM_SERVICE_NAME = 'ad-team-dashboard'
 } = process.env;
 
 if (!TURSO_DATABASE_URL || !TURSO_AUTH_TOKEN) {
@@ -56,6 +63,15 @@ function issueToken(email) {
 }
 
 function requireAuth(req, res, next) {
+  // Machine-to-machine path: a trusted internal service (e.g. the Ad-Team
+  // dashboard) presents the shared key instead of logging in as a person.
+  const serviceKey = req.headers['x-service-key'];
+  if (AD_TEAM_SERVICE_KEY && serviceKey && serviceKey === AD_TEAM_SERVICE_KEY) {
+    req.user = AD_TEAM_SERVICE_NAME;
+    req.isService = true;
+    return next();
+  }
+
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   const session = token && sessions.get(token);
@@ -368,6 +384,27 @@ app.post('/api/issues', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not save issue.' });
+  }
+});
+
+// Single-issue lookup, keyed by the id this same API returned on creation.
+// Added for the Ad-Team dashboard's "Send to ISF" feature: after creating a
+// ticket via POST /api/issues it polls this to show the ticket's current
+// status/remarks back on its own card, without needing the full /api/issues
+// list (which the service-key identity has no particular hub scoping for).
+app.get('/api/issues/:id', requireAuth, async (req, res) => {
+  try {
+    const result = await db.execute({
+      sql: `SELECT id, consignment, channel, zone, hub, status, category, subcategory, details,
+                   remarks, remarks_by, escalation_level, response_status, updated_at, ts
+            FROM issues WHERE id = ?`,
+      args: [req.params.id]
+    });
+    if (!result.rows.length) return res.status(404).json({ error: 'Issue not found.' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not fetch issue.' });
   }
 });
 
