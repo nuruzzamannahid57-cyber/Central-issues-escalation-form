@@ -275,7 +275,6 @@
             <option value="" disabled selected>Choose</option>
             <option>Open</option>
             <option>In Progress</option>
-            <option>Escalated</option>
             <option>Resolved</option>
           </select>
         </div>
@@ -371,10 +370,16 @@
 
   // ---------- attachments (photo / voice note) ----------
   // Kept as base64 data URLs client-side and sent inline with the issue
-  // payload — no separate upload step/endpoint. 6MB/file cap keeps a
-  // multi-attachment submission comfortably under the server's 20mb JSON
-  // body limit (base64 runs ~33% larger than the source file).
-  const MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024;
+  // payload — no separate upload step/endpoint. Photos are downsized/
+  // re-compressed on a <canvas> before encoding: a raw phone photo can be
+  // several MB, and large base64 payloads have proven unreliable end-to-end
+  // (some silently failed to round-trip through the DB). Capping the
+  // compressed output at ~1.5MB keeps every photo comfortably small.
+  // Voice notes can't be compressed client-side this simply, so they get a
+  // smaller raw cap instead.
+  const MAX_PHOTO_RAW_BYTES = 20 * 1024 * 1024; // before compression
+  const MAX_PHOTO_OUTPUT_BYTES = 1.5 * 1024 * 1024; // after compression
+  const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
   let pendingAttachments = []; // { type, filename, mimeType, dataUrl }
 
   function renderAttachList(){
@@ -405,16 +410,48 @@
     });
   }
 
+  // Downscales + re-encodes an image via canvas, trying progressively lower
+  // JPEG quality until the output is under MAX_PHOTO_OUTPUT_BYTES (or we run
+  // out of quality steps — 0.4 is still perfectly usable for a "what's
+  // damaged" reference photo).
+  function compressImage(file, maxDim){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+          else { width = Math.round(width * (maxDim / height)); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        let quality = 0.75;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+        while (dataUrl.length > MAX_PHOTO_OUTPUT_BYTES * 1.37 && quality > 0.35) {
+          quality -= 0.15;
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve(dataUrl);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not decode image')); };
+      img.src = url;
+    });
+  }
+
   async function handleAttachmentFiles(fileList, type){
     const msg = $('formMsg');
     for (const file of Array.from(fileList)) {
-      if (file.size > MAX_ATTACHMENT_BYTES) {
-        msg.textContent = `${file.name} is too large (max 6MB per file).`; msg.className = 'status-msg err';
+      const cap = type === 'photo' ? MAX_PHOTO_RAW_BYTES : MAX_AUDIO_BYTES;
+      if (file.size > cap) {
+        msg.textContent = `${file.name} is too large (max ${Math.round(cap / (1024 * 1024))}MB).`; msg.className = 'status-msg err';
         continue;
       }
       try {
-        const dataUrl = await fileToDataUrl(file);
-        pendingAttachments.push({ type, filename: file.name, mimeType: file.type, dataUrl });
+        const dataUrl = type === 'photo' ? await compressImage(file, 1280) : await fileToDataUrl(file);
+        pendingAttachments.push({ type, filename: file.name, mimeType: type === 'photo' ? 'image/jpeg' : file.type, dataUrl });
       } catch {
         msg.textContent = `Could not read ${file.name}.`; msg.className = 'status-msg err';
       }
