@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 const { createClient } = require('@libsql/client');
+const { registerParcelJourney } = require('./parcel-journey');
 
 const {
   TURSO_DATABASE_URL,
@@ -448,6 +449,10 @@ app.get('/api/issues/:id/parcel-journey', requireAuth, async (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// ---------- Parcel Journey tab (SLA engine, uploads, issues from breaches) ----------
+// Lives in its own module; issues it raises land in the same `issues` table.
+const parcelJourney = registerParcelJourney(app, { db, requireAuth });
 
 // ---------- admin: seed the hub -> manager mapping ----------
 
@@ -959,6 +964,7 @@ app.post('/api/admin/send-daily-report', async (req, res) => {
 });
 
 ensureTables()
+  .then(() => parcelJourney.ensureTables())
   .then(() => {
     app.listen(PORT, () => console.log(`Escalation backend listening on port ${PORT}`));
   })

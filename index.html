@@ -119,6 +119,7 @@
   .session-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;font-size:12.5px;color:var(--text-faint);}
   .session-row button.link{background:none;border:none;color:var(--accent);font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;padding:0;}
 </style>
+<link rel="stylesheet" href="parcel-journey-ui.css">
 </head>
 <body>
 
@@ -126,7 +127,7 @@
   <header class="top">
     <div>
       <span class="eyebrow">CARRYBEE EXPRESS</span>
-      <h1>Log an Issue</h1>
+      <h1 id="pageTitle">Log an Issue</h1>
     </div>
     <label id="theme-toggle-button">
       <input type="checkbox" id="toggle">
@@ -200,6 +201,12 @@
     <span id="sessionLabel"></span>
     <button class="link" id="btnLogout">Sign out</button>
   </div>
+  <div class="app-tabs" role="tablist">
+    <button type="button" class="app-tab active" id="tabForm" role="tab" data-tab="form">Log an Issue</button>
+    <button type="button" class="app-tab" id="tabParcel" role="tab" data-tab="parcel">Parcel Journey</button>
+  </div>
+  <div id="panel-parcel" hidden><div id="pj-root"></div></div>
+  <div id="panel-form">
   <div class="form-card">
     <p class="lede">Log an operational issue for a consignment or merchant. Submissions here feed the escalation dashboard directly — no separate sync step.</p>
     <form id="issueForm">
@@ -321,10 +328,14 @@
     <p class="foot-note">Logged issues appear on the escalation dashboard artifact — open that separately to review, filter, and export.</p>
   </div>
   </div>
+  </div>
 </div>
 
 <script>
-  const API_BASE = 'https://central-issues-escalation-form.onrender.com';
+  // Opened from a local `npm start`, talk to that local server instead of the live one.
+  const API_BASE = ['localhost', '127.0.0.1'].includes(location.hostname)
+    ? location.origin
+    : 'https://central-issues-escalation-form.onrender.com';
 
   // ---------- Light / dark theme ----------
   (function initTheme(){
@@ -581,6 +592,7 @@
       $('sessionLabel').textContent = data.name || authEmail;
       $('view-login').style.display = 'none';
       $('view-app').style.display = 'block';
+      showAppTab('form');
     }catch(err){
       msg.textContent = 'Could not reach the server.'; msg.classList.add('err');
     }
@@ -589,9 +601,25 @@
   $('btnLogout').addEventListener('click', ()=>{
     authToken = null; authEmail = null;
     $('loginForm').reset();
+    if(window.ParcelJourney) window.ParcelJourney.reset();
+    showAppTab('form');
     $('view-app').style.display = 'none';
     $('view-login').style.display = 'block';
   });
+
+  // ---------- tabs: Log an Issue / Parcel Journey ----------
+  function showAppTab(tab){
+    const parcel = tab === 'parcel';
+    $('tabForm').classList.toggle('active', !parcel);
+    $('tabParcel').classList.toggle('active', parcel);
+    $('panel-form').hidden = parcel;
+    $('panel-parcel').hidden = !parcel;
+    document.querySelector('.wrap').classList.toggle('wide', parcel);
+    $('pageTitle').textContent = parcel ? 'Parcel Journey' : 'Log an Issue';
+    if(parcel && window.ParcelJourney) window.ParcelJourney.show();
+  }
+  $('tabForm').addEventListener('click', ()=> showAppTab('form'));
+  $('tabParcel').addEventListener('click', ()=> showAppTab('parcel'));
 
   $('issueForm').addEventListener('submit', async (e)=>{
     e.preventDefault();
@@ -654,5 +682,6 @@
     }
   });
 </script>
+<script src="parcel-journey-ui.js"></script>
 </body>
 </html>
