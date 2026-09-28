@@ -6,670 +6,391 @@
 <title>Log an Issue — Carrybee Express</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
 <style>
-  :root{
-    --bg: #f8fafc;
-    --surface: #ffffff;
-    --surface-2: #f1f5f9;
-    --border: #e2e8f0;
-    --text: #0f172a;
-    --text-dim: #475569;
-    --text-faint: #94a3b8;
-    --accent: #6366f1;
-    --red: #ef4444;
-    --green: #22c55e;
-  }
-  :root[data-theme="dark"]{
-    --bg: #0f172a;
-    --surface: #1e293b;
-    --surface-2: #334155;
-    --border: #475569;
-    --text: #f1f5f9;
-    --text-dim: #cbd5e1;
-    --text-faint: #94a3b8;
-    --accent: #818cf8;
-    --red: #f87171;
-    --green: #4ade80;
-  }
-  *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;transition:background-color .25s, color .25s;}
-  .wrap{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
-  header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:24px;}
-  .eyebrow{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--accent);text-transform:uppercase;}
-  h1{font-family:'Inter',serif;font-weight:700;font-size:32px;margin:6px 0 0;letter-spacing:-.02em;}
-
-  .form-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;box-shadow:0 1px 3px 0 rgb(0 0 0 / 0.1);}
-  .form-card p.lede{color:var(--text-dim);margin:0 0 26px;font-size:14.5px;max-width:60ch;line-height:1.6;}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px;}
-  .field{display:flex;flex-direction:column;gap:7px;}
-  .field.full{grid-column:1 / -1;}
-  label{font-size:13px;font-weight:600;color:var(--text-dim);}
-  label .req{color:var(--red);margin-left:2px;}
-  label .hint{display:block;font-weight:400;color:var(--text-faint);font-size:12px;margin-top:2px;}
-  input[type=text], select, textarea{
-    background:var(--surface);border:1px solid var(--border);color:var(--text);
-    padding:11px 14px;border-radius:8px;font-family:'Inter',sans-serif;font-size:14px;
-    outline:none;transition:all .15s ease;width:100%;
-  }
-  input[type=text]:focus, select:focus, textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgb(99 102 241 / 0.1);}
-  select:disabled{opacity:.45;cursor:not-allowed;}
-  .checkbox-box{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:14px 14px 6px;}
-  .checkbox-group-title{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--text-faint);text-transform:uppercase;margin:0 0 6px;}
-  .checkbox-group-title:not(:first-child){margin-top:12px;}
-  .checkbox-item{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--text);font-weight:400;padding:6px 2px;cursor:pointer;}
-  .checkbox-item input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex:none;}
-  textarea{resize:vertical;min-height:90px;line-height:1.5;font-family:'Inter',sans-serif;}
-  select{appearance:none;-webkit-appearance:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 14px center;padding-right:32px;
-  }
-  .submit-row{display:flex;align-items:center;gap:14px;margin-top:28px;}
-  button.primary{
-    background:var(--accent);color:#ffffff;border:none;font-family:'Inter',sans-serif;
-    font-weight:700;font-size:14.5px;padding:12px 26px;border-radius:8px;cursor:pointer;
-    transition:all .15s ease;box-shadow:0 1px 3px 0 rgb(0 0 0 / 0.1);
-  }
-  button.primary:hover{background:#4f46e5;box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);}
-  button.primary:active{transform:translateY(1px);}
-  .status-msg{font-size:13.5px;font-weight:600;}
-  .status-msg.ok{color:var(--green);}
-  .status-msg.err{color:var(--red);}
-  .foot-note{margin-top:16px;font-size:12px;color:var(--text-faint);line-height:1.5;}
-  @media (max-width:640px){ .grid{grid-template-columns:1fr;} }
-
-  /* ---- attachments: photo / voice note ---- */
-  .attach-zone{border:1.5px dashed var(--border);border-radius:12px;padding:18px;text-align:center;transition:border-color .2s ease, background-color .2s ease;}
-  .attach-zone.dragover{border-color:var(--accent);background:var(--surface-2);}
-  .attach-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
-  .attach-btn{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;padding:10px 16px;border-radius:999px;cursor:pointer;transition:all .15s ease;}
-  .attach-btn:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px);}
-  .attach-btn:active{transform:translateY(0);}
-  .attach-icon{font-size:16px;line-height:1;}
-  .attach-drop-hint{margin:12px 0 0;font-size:12px;color:var(--text-faint);}
-  .attach-list{margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;}
-  .attach-chip{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:6px 10px 6px 6px;font-size:12.5px;animation:chipIn .18s ease;}
-  .attach-chip img{width:34px;height:34px;object-fit:cover;border-radius:6px;display:block;}
-  .attach-chip .chip-audio-icon{width:34px;height:34px;border-radius:6px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;flex:none;}
-  .attach-chip .chip-name{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim);}
-  .attach-chip button.chip-remove{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:15px;line-height:1;padding:2px;}
-  .attach-chip button.chip-remove:hover{color:var(--red);}
-  @keyframes chipIn{from{opacity:0;transform:scale(.9);}to{opacity:1;transform:scale(1);}}
-
-  /* ---- light / dark toggle ---- */
-  #theme-toggle-button{font-size:7px;position:relative;display:inline-block;width:7em;cursor:pointer;flex-shrink:0;}
-  #toggle{opacity:0;width:0;height:0;}
-  #container,#patches,#stars,#button,#sun,#moon,#cloud{
-    transition-property:all;transition-timing-function:cubic-bezier(0.4,0,0.2,1);transition-duration:.25s;
-  }
-  #toggle:checked + svg #container{fill:#334155;}
-  #toggle:checked + svg #button{transform:translate(28px, 2.333px);}
-  #sun{opacity:1;}
-  #toggle:checked + svg #sun{opacity:0;}
-  #moon{opacity:0;}
-  #toggle:checked + svg #moon{opacity:1;}
-  #cloud{opacity:1;}
-  #toggle:checked + svg #cloud{opacity:0;}
-  #stars{opacity:0;}
-  #toggle:checked + svg #stars{opacity:1;}
-
-  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:380px;margin:40px auto 0;box-shadow:0 1px 3px 0 rgb(0 0 0 / 0.1);}
-  .login-card p.lede{color:var(--text-dim);margin:0 0 22px;font-size:14px;line-height:1.5;}
-  .login-card .field{margin-bottom:16px;}
-  .login-card button.primary{width:100%;}
-  #view-app{display:none;}
-  .session-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;font-size:12.5px;color:var(--text-faint);}
-  .session-row button.link{background:none;border:none;color:var(--accent);font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;padding:0;}
-  .session-row button.link:hover{text-decoration:underline;}
+:root{
+  --bg:#232122; --surface:#333132; --surface-2:#2B292A; --border:#4A4748;
+  --text:#F5F3F0; --dim:#C9C5C2; --faint:#A39E9F;
+  --accent:#FFCC00; --accent-hover:#F0BF00; --on-accent:#333132;
+  --ring:#FFCC00; --red:#FF8A7E; --green:#7FD08A; --arrow:%23A39E9F;
+}
+:root[data-theme="light"]{
+  --bg:#F5F4F2; --surface:#FFFFFF; --surface-2:#F5F4F2; --border:#DEDBD8;
+  --text:#333132; --dim:#5A5657; --faint:#757071;
+  --ring:#333132; --red:#B3261E; --green:#2E7D32; --arrow:%23757071;
+}
+*{box-sizing:border-box;}
+html{color-scheme:dark;}
+html[data-theme="light"]{color-scheme:light;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px;}
+.bar{background:#333132;border-bottom:3px solid #FFCC00;}
+.bar-in{max-width:760px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.brand{display:flex;align-items:center;gap:12px;color:#fff;}
+.mark{width:32px;height:32px;border-radius:8px;background:#FFCC00;color:#333132;display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.02em;}
+.brand b{font-weight:600;font-size:15px;letter-spacing:.01em;}
+.icon-btn{width:44px;height:44px;border-radius:10px;border:1px solid #5A5657;background:transparent;color:#fff;display:grid;place-items:center;cursor:pointer;transition:background-color .15s,border-color .15s;}
+.icon-btn:hover{background:#413F40;border-color:#FFCC00;}
+.bar .icon-btn:focus-visible{outline-color:#FFCC00;}
+.wrap{max-width:760px;margin:0 auto;padding:32px 20px 80px;}
+h1{font-size:26px;font-weight:600;letter-spacing:-.01em;margin:0 0 4px;}
+.sub{color:var(--dim);margin:0 0 24px;max-width:62ch;font-size:14.5px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;}
+.card.narrow{max-width:400px;margin:24px auto 0;}
+.sec{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0 0 14px;display:flex;align-items:center;gap:10px;}
+.sec::after{content:"";flex:1;height:1px;background:var(--border);}
+.sec:not(:first-child){margin-top:28px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 18px;}
+.full{grid-column:1/-1;}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0;}
+label,.lbl{font-size:13px;font-weight:600;color:var(--dim);}
+.req{color:var(--red);margin-left:2px;}
+.hint{font-weight:400;color:var(--faint);margin-left:6px;}
+input[type=text],input[type=password],select,textarea{
+  width:100%;min-height:44px;padding:10px 12px;background:var(--surface-2);color:var(--text);
+  border:1px solid var(--border);border-radius:8px;font:inherit;transition:border-color .15s;
+}
+input::placeholder,textarea::placeholder{color:var(--faint);}
+input:hover,select:hover,textarea:hover{border-color:var(--faint);}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--ring);outline-offset:1px;border-color:var(--ring);}
+select{appearance:none;-webkit-appearance:none;padding-right:34px;background-repeat:no-repeat;background-position:right 14px center;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238A8586'/%3E%3C/svg%3E");}
+select:disabled{opacity:.5;cursor:not-allowed;}
+textarea{resize:vertical;min-height:110px;}
+.checks{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.checks h4{margin:12px 0 2px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);}
+.checks h4:first-child{margin-top:0;}
+.check{display:flex;align-items:center;gap:10px;min-height:36px;font-size:14px;font-weight:400;color:var(--text);cursor:pointer;}
+.check input{width:16px;height:16px;accent-color:#FFCC00;flex:none;cursor:pointer;}
+.drop{border:1.5px dashed var(--border);border-radius:10px;padding:18px;text-align:center;transition:border-color .15s,background-color .15s;}
+.drop.over{border-color:var(--accent);background:var(--surface-2);}
+.drop p{margin:10px 0 0;font-size:12.5px;color:var(--faint);}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.ghost{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:8px;background:transparent;color:var(--text);border:1px solid var(--border);font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;transition:border-color .15s,background-color .15s;}
+.ghost:hover{border-color:var(--accent);background:var(--surface-2);}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
+.chip{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:5px 4px 5px 5px;font-size:12.5px;color:var(--dim);}
+.chip img,.chip .ph{width:32px;height:32px;border-radius:6px;object-fit:cover;background:var(--surface);display:grid;place-items:center;}
+.chip span.n{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.chip button{width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--faint);display:grid;place-items:center;cursor:pointer;}
+.chip button:hover{color:var(--red);}
+.submit{display:flex;align-items:center;gap:14px;margin-top:28px;flex-wrap:wrap;}
+.primary{min-height:46px;padding:0 28px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:inherit;font-weight:700;font-size:14.5px;cursor:pointer;transition:background-color .15s;}
+.primary:hover{background:var(--accent-hover);}
+.primary:disabled{opacity:.6;cursor:progress;}
+.primary.block{width:100%;}
+html[data-theme="light"] .primary:focus-visible{outline-color:#333132;}
+.msg{font-size:13.5px;font-weight:600;}
+.msg.ok{color:var(--green);} .msg.err{color:var(--red);}
+.session{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;font-size:13px;color:var(--dim);}
+.link{background:none;border:0;color:var(--text);font:inherit;font-weight:600;font-size:13px;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--accent);cursor:pointer;min-height:44px;padding:0 4px;}
+.foot{margin:18px 0 0;font-size:12.5px;color:var(--faint);}
+@media(max-width:640px){.grid{grid-template-columns:1fr;}.card{padding:20px;}h1{font-size:23px;}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;}}
 </style>
-<link rel="stylesheet" href="parcel-journey-ui.css">
 </head>
 <body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const API_BASE = 'https://central-issues-escalation-form.onrender.com';
+const THEME_KEY = 'cbe_theme';
+const MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024;
+const MEDIA_CHANNELS = ['Social Media', 'Inbound'];
+const CHANNELS = ['KAM','Contact center','Social Media','Inbound','OPS','HUB','Merchant panel'];
+const ZONES = ['ISD','OSD','SUB','Central Sort'];
+const STATUSES = ['Open','In Progress','Escalated','Resolved'];
 
-<div class="wrap">
-  <header class="top">
-    <div>
-      <span class="eyebrow">CARRYBEE EXPRESS</span>
-      <h1 id="pageTitle">Log an Issue</h1>
+const HUB_MAP = {"ISD": ["Uttara", "Diabari", "Khilkhet", "Mohakhali", "Badda-Nadda", "Pallabi", "60 Feet", "Mohammadpur", "Kolabagan", "Lalbagh", "Kamrangirchar", "Badda", "Jatrabari", "Khilgaon", "Dhonia", "Demra"], "SUB": ["Gazipur-Joydebpur", "Gazipur-Kapasiya", "Gazipur-Mawna", "Gazipur-Mouchak", "Gazipur-Boardbazar", "Gazipur-Kaliganj", "Savar", "Savar-Baipail", "Savar-Dhamrai", "Narayanganj", "Sonargaon", "Narayanganj-Bandar", "Narayanganj-Araihazar", "Rupganj", "Bhulta-Gawsia", "Dohar-Nawabganj", "Keraniganj-Ati Bazar", "Siddhirganj", "Keraniganj"], "OSD": ["Jhenaidah-Sadar", "Jhenaidah-Maheshpur", "Satkhira-Sadar", "Meherpur-Sadar", "Kushtia-Sadar", "Kushtia-Daulatpur", "Kushtia-Bheramara", "Jessore-Sadar", "Jessore-Sharsha", "Jessore-Manirampur", "Khulna-Sadar", "Jessore-Abhaynagar", "Bagerhat-Sadar", "Khulna-Paikgacha", "Khulna-Dumuria", "Satkhira-Kaliganj", "Bagerhat-Mongla", "Bagerhat-Morrelganj", "Chuadanga-Sadar", "Magura-Sadar", "Narail-Sadar", "Barishal-Sadar", "Barisal-Gournadi", "Barisal-Bakerganj", "Bhola-Charfassion", "Bhola-Sadar", "Pirojpur-Sadar", "Pirojpur-Mathbaria", "Barisal-Muladi", "Jhalokathi-Sadar", "Barguna-Sadar", "Patuakhali-Sadar", "Patuakhali-Galachipa", "Patuakhali-Kalapara", "Shariatpur-Sadar", "Gopalganj-Sadar", "Madaripur-Shibchar", "Madaripur-Sadar", "Faridpur-Sadar", "Gopalganj-Muksudpur", "Shariatpur-Damudya", "Munshiganj-Sirajdikhan", "Tangail-Sakhipur", "Manikganj-Sadar", "Manikganj-Singair", "Munshiganj-Sreenagar", "Tangail-Mirzapur", "Munshiganj-Sadar", "Tangail-Sadar", "Tangail-Ghatail", "Faridpur-Bhanga", "Rajbari-Sadar", "Faridpur-Boalmari", "Sylhet-Golapganj", "Sylhet-Beanibazar", "Sylhet-Sadar", "Sylhet-Jaintiapur", "Sylhet-Kanaighat", "Sylhet-Gowainghat", "Sylhet-Bishwanath", "Sylhet-Osmaninagar", "Sylhet-Fenchuganj", "Sylhet-Dakshin Surma", "Habiganj-Sadar", "Habiganj-Chunarughat", "Habiganj-Madhabpur", "Habiganj-Nabiganj", "Moulvibazar-Barlekha", "Moulvibazar-Kulaura", "Maulvibazar-Sadar", "Moulvibazar-Rajnagar", "Moulvibazar-Sreemangal", "Moulvibazar-Kamalganj", "Sunamganj-Sadar", "Sunamganj-Chhatak", "Sunamganj-Jagannathpur", "Sunamganj-Derai", "Netrokona-Sadar", "Netrakona-Mohonganj", "Jamalpur-Dewanganj", "Sherpur-Sadar", "Mymensingh-Phulpur", "Mymensingh-Bhaluka", "Mymensingh-Gaffargaon", "Mymensingh-Trishal", "Mymensingh-Sadar", "Jamalpur-Sadar", "Joypurhat-Sadar", "Bogra-Sadar", "Bogra-Sherpur", "Bogra-Dhupchanchia", "Sirajganj-Sadar", "Naogaon-Sadar", "Pabna-Bhangura", "Natore-Sadar", "Pabna-Ishwardi", "Pabna-Sadar", "Sirajganj-Shahjadpur", "Chapainawabganj-Shibganj", "Chapainawabganj-Sadar", "Sirajganj-Ullapara", "Naogaon-Patnitala", "Rajshahi-Puthia", "Rajshahi-Sadar", "Gaibandha-Sadar", "Rangpur-Sadar", "Nilphamari-Sadar", "Kurigram-Sadar", "Thakurgaon-Sadar", "Lalmonirhat-Sadar", "Rangpur-Mithapukur", "Nilphamari-Saidpur", "Gaibandha-Gobindaganj", "Panchagarh-Sadar", "Dinajpur-Nawabganj", "Nilphamari-Joldhaka", "Dinajpur-Birganj", "Dinajpur-Sadar", "Narsingdi-Sadar", "Narsingdi-Roypura", "Narsingdi-Shibpur", "Kishoreganj-Mithamain", "Kishoreganj-Pakundia", "Kishoreganj-Sadar", "Kishoreganj-Bhairab", "B.Baria-Sadar", "B.Baria-Kasba", "B.Baria-Nabinagar", "B.Baria-Bancharampur", "B.Baria-Nasirnagar", "B.Baria-Akhaura", "Comilla-Laksam", "Comilla-Sadar", "Comilla-Muradnagar", "Comilla-Chandina", "Comilla-Chauddagram", "Comilla-Daudkandi", "Comilla-Burichang", "Comilla-Nangalkot", "Comilla-Brahmanpara", "Comilla-Barura", "Comilla-Debidwar", "Chandpur-Sadar", "Chandpur-Faridganj", "Chandpur-Hajiganj", "Chandpur-Kachua", "Chandpur-Shahrasti", "Chandpur-Matlab Dakshin", "Noakhali-Senbagh", "Noakhali-Companiganj", "Noakhali-Sadar", "Noakhali-Chatkhil", "Noakhali-Subarnachar", "Noakhali-Begumganj", "Lakshmipur-Kamalnagar", "Lakshmipur-Ramganj", "Lakshmipur-Raipur", "Lakshmipur-Sadar", "Cox's Bazar-Chakaria", "Cox's Bazar-Maheshkhali", "Cox's Bazar-Ramu", "Cox's Bazar-Sadar", "Cox's Bazar-Teknaf", "Cox's Bazar-Ukhia", "CTG-Halishahar", "CTG-Nasirabad", "CTG-Patenga", "CTG-Patiya", "CTG-Fatikchari", "CTG-Raozan", "CTG-Satkania", "CTG-Sitakunda", "Feni-Chhagalnaiya", "Feni-Daganbhuya", "Feni-Sadar", "Feni-Sonagazi", "Khagrachari-Sadar", "Rangamati-Sadar", "Bandarban-Sadar", "CTG-Anwara", "CTG-Banshkhali", "CTG-Rangunia", "CTG-Hathazari", "CTG-Mirsarai"], "Central Sort": ["Central Sort"]};
+
+const CATEGORY_MAP = {
+  "Delivery Delay": ["Hub processing delay","Rider unavailable","Address / location issue","Weather or force majeure","Traffic / distance issue","Customer unreachable","Vehicle breakdown"],
+  "Payment Issue": ["COD not remitted","Payment delay","Wrong amount collected","Payment not updated in system","Bank / transfer issue"],
+  "Pickup": ["Pickup not done","Pickup delay","Rider no-show","Wrong pickup address","Pickup rescheduled without notice"],
+  "Return Delay": ["Return not initiated","Return stuck at hub","Return rider not assigned","Delayed return to merchant"],
+  "Return Exchange": ["Exchange not processed","Wrong item returned","Exchange delay","Customer refused exchange"],
+  "Reverse Pickup": ["Reverse pickup not scheduled","Reverse pickup delay","Rider refused reverse pickup","Customer unavailable for reverse pickup"],
+  "Charge Extra/Wrong COD": ["Extra charge without notice","Wrong COD amount entered","Weight discrepancy charge","Unauthorized charge"],
+  "Damage": ["Product damaged in transit","Packaging damaged","Damage at hub","Damage during handling"],
+  "No Entry/Cancelled": ["Order cancelled by rider","No entry in system","Cancelled without reason","Duplicate entry"],
+  "Unprofessionalism": ["Rider misbehavior","Hub staff misbehavior","Rude communication","Inappropriate conduct"],
+  "Wrong Routing": ["Sent to wrong hub","Wrong zone assignment","Misrouted parcel","Routing system error"],
+  "Wrong Tag/Parcel Swapped": ["Tag mismatch","Parcel swapped with another order","Barcode / label error","Wrong merchant tag"],
+  "Breach of CLOSEBOX": ["Seal broken before delivery","Unauthorized box opening","Tampering reported by customer","Missing items after breach"],
+  "Urgent Delivery": ["Same-day delivery request","VIP / priority merchant request","Time-sensitive product","Festival / peak season request"]
+};
+const SOCIAL_GROUPS = [
+  ['Groups', ['CarryBee Agent Community [Official]','CarryBee - Merchant Support [Official]','CarryBee Community [Official]']],
+  ['Unofficial groups', ['Unofficial Group']],
+  ['Pages', ['CarryBee','CarryBee Careers']],
+  ['Other', ['Inbox','Comments']]
+];
+
+const Svg = ({ children, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
+);
+const Sun = () => <Svg><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></Svg>;
+const Moon = () => <Svg><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></Svg>;
+const Camera = () => <Svg><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></Svg>;
+const Mic = () => <Svg><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></Svg>;
+const Close = () => <Svg size={16}><path d="M18 6 6 18M6 6l12 12"/></Svg>;
+
+function useTheme() {
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem(THEME_KEY) || 'dark'; } catch { return 'dark'; } });
+  useEffect(() => {
+    if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    else document.documentElement.removeAttribute('data-theme');
+    try { localStorage.setItem(THEME_KEY, theme); } catch {}
+  }, [theme]);
+  return [theme, () => setTheme(t => (t === 'dark' ? 'light' : 'dark'))];
+}
+
+function Field({ id, label, required, hint, full, children }) {
+  return (
+    <div className={'field' + (full ? ' full' : '')}>
+      <label htmlFor={id}>{label}{required && <span className="req" aria-hidden="true">*</span>}{hint && <span className="hint">{hint}</span>}</label>
+      {children}
     </div>
-    <label id="theme-toggle-button">
-      <input type="checkbox" id="toggle">
-      <svg viewBox="0 0 69.667 44" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg">
-        <g transform="translate(3.5 3.5)" data-name="Component 15 – 1" id="Component_15_1">
-          <g filter="url(#container)" transform="matrix(1, 0, 0, 1, -3.5, -3.5)">
-            <rect fill="#818cf8" transform="translate(3.5 3.5)" rx="17.5" height="35" width="60.667" data-name="container" id="container"></rect>
-          </g>
-          <g transform="translate(2.333 2.333)" id="button">
-            <g data-name="sun" id="sun">
-              <g filter="url(#sun-outer)" transform="matrix(1, 0, 0, 1, -5.83, -5.83)">
-                <circle fill="#fbbf24" transform="translate(5.83 5.83)" r="15.167" cy="15.167" cx="15.167" data-name="sun-outer" id="sun-outer-2"></circle>
-              </g>
-              <g filter="url(#sun)" transform="matrix(1, 0, 0, 1, -5.83, -5.83)">
-                <path fill="rgba(255,255,255,0.3)" transform="translate(9.33 9.33)" d="M11.667,0A11.667,11.667,0,1,1,0,11.667,11.667,11.667,0,0,1,11.667,0Z" data-name="sun" id="sun-3"></path>
-              </g>
-              <circle fill="#fef3c7" transform="translate(8.167 8.167)" r="7" cy="7" cx="7" id="sun-inner"></circle>
-            </g>
-            <g data-name="moon" id="moon">
-              <g filter="url(#moon)" transform="matrix(1, 0, 0, 1, -31.5, -5.83)">
-                <circle fill="#cbd5e1" transform="translate(31.5 5.83)" r="15.167" cy="15.167" cx="15.167" data-name="moon" id="moon-3"></circle>
-              </g>
-              <g fill="#94a3b8" transform="translate(-24.415 -1.009)" id="patches">
-                <circle transform="translate(43.009 4.496)" r="2" cy="2" cx="2"></circle>
-                <circle transform="translate(39.366 17.952)" r="2" cy="2" cx="2" data-name="patch"></circle>
-                <circle transform="translate(33.016 8.044)" r="1" cy="1" cx="1" data-name="patch"></circle>
-                <circle transform="translate(51.081 18.888)" r="1" cy="1" cx="1" data-name="patch"></circle>
-                <circle transform="translate(33.016 22.503)" r="1" cy="1" cx="1" data-name="patch"></circle>
-                <circle transform="translate(50.081 10.53)" r="1.5" cy="1.5" cx="1.5" data-name="patch"></circle>
-              </g>
-            </g>
-          </g>
-          <g filter="url(#cloud)" transform="matrix(1, 0, 0, 1, -3.5, -3.5)">
-            <path fill="#fff" transform="translate(-3466.47 -160.94)" d="M3512.81,173.815a4.463,4.463,0,0,1,2.243.62.95.95,0,0,1,.72-1.281,4.852,4.852,0,0,1,2.623.519c.034.02-.5-1.968.281-2.716a2.117,2.117,0,0,1,2.829-.274,1.821,1.821,0,0,1,.854,1.858c.063.037,2.594-.049,3.285,1.273s-.865,2.544-.807,2.626a12.192,12.192,0,0,1,2.278.892c.553.448,1.106,1.992-1.62,2.927a7.742,7.742,0,0,1-3.762-.3c-1.28-.49-1.181-2.65-1.137-2.624s-1.417,2.2-2.623,2.2a4.172,4.172,0,0,1-2.394-1.206,3.825,3.825,0,0,1-2.771.774c-3.429-.46-2.333-3.267-2.2-3.55A3.721,3.721,0,0,1,3512.81,173.815Z" data-name="cloud" id="cloud"></path>
-          </g>
-          <g fill="#e0e7ff" transform="translate(3.585 1.325)" id="stars">
-            <path transform="matrix(-1, 0.017, -0.017, -1, 24.231, 3.055)" d="M.774,0,.566.559,0,.539.458.933.25,1.492l.485-.361.458.394L1.024.953,1.509.592.943.572Z"></path>
-            <path transform="matrix(-0.777, 0.629, -0.629, -0.777, 23.185, 12.358)" d="M1.341.529.836.472.736,0,.505.46,0,.4.4.729l-.231.46L.605.932l.4.326L.9.786Z" data-name="star"></path>
-            <path transform="matrix(0.438, 0.899, -0.899, 0.438, 23.177, 29.735)" d="M.015,1.065.475.9l.285.365L.766.772l.46-.164L.745.494.751,0,.481.407,0,.293.285.658Z" data-name="star"></path>
-            <path transform="translate(12.677 0.388) rotate(104)" d="M1.161,1.6,1.059,1,1.574.722.962.607.86,0,.613.572,0,.457.446.881.2,1.454l.516-.274Z" data-name="star"></path>
-            <path transform="matrix(-0.07, 0.998, -0.998, -0.07, 11.066, 15.457)" d="M.873,1.648l.114-.62L1.579.945,1.03.62,1.144,0,.706.464.157.139.438.7,0,1.167l.592-.083Z" data-name="star"></path>
-            <path transform="translate(8.326 28.061) rotate(11)" d="M.593,0,.638.724,0,.982l.7.211.045.724.36-.64.7.211L1.342.935,1.7.294,1.063.552Z" data-name="star"></path>
-            <path transform="translate(5.012 5.962) rotate(172)" d="M.816,0,.5.455,0,.311.323.767l-.312.455.516-.215.323.456L.827.911,1.343.7.839.552Z" data-name="star"></path>
-            <path transform="translate(2.218 14.616) rotate(169)" d="M1.261,0,.774.571.114.3.487.967,0,1.538.728,1.32l.372.662.047-.749.728-.218L1.215.749Z" data-name="star"></path>
-          </g>
-        </g>
-      </svg>
-    </label>
-  </header>
+  );
+}
 
+function Select({ id, value, onChange, options, placeholder = 'Choose', disabled, required = true }) {
+  return (
+    <select id={id} value={value} onChange={e => onChange(e.target.value)} disabled={disabled} required={required}>
+      <option value="" disabled>{placeholder}</option>
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
 
-  <div id="view-login" class="login-card">
-    <p class="lede">Sign in with your Carrybee login to log an issue.</p>
-
-    <form id="loginForm">
-      <div class="field">
-        <label>Email</label>
-        <input type="text" id="l-email" required placeholder="you@carrybee.com">
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <input type="text" id="l-password" required placeholder="Password">
-      </div>
-      <button type="submit" class="primary">Sign in</button>
-      <div style="margin-top:12px;"><span id="loginMsg" class="status-msg"></span></div>
-    </form>
-  </div>
-
-  <div id="view-app">
-  <div class="session-row">
-    <span id="sessionLabel"></span>
-    <button class="link" id="btnLogout">Sign out</button>
-  </div>
-  <div class="app-tabs" role="tablist">
-    <button type="button" class="app-tab active" id="tabForm" role="tab" data-tab="form">Log an Issue</button>
-    <button type="button" class="app-tab" id="tabParcel" role="tab" data-tab="parcel">Parcel Journey</button>
-  </div>
-  <div id="panel-parcel" hidden><div id="pj-root"></div></div>
-  <div id="panel-form">
-  <div class="form-card">
-    <p class="lede">Log an operational issue for a consignment or merchant. Submissions here feed the escalation dashboard directly — no separate sync step.</p>
-    <form id="issueForm">
-      <div class="grid">
-
-        <div class="field full">
-          <label>Consignment ID / Merchant Name <span class="req">*</span></label>
-          <input type="text" id="f-consignment" required placeholder="e.g. CB-4471290 or Sundora">
-        </div>
-
-        <div class="field">
-          <label>Channel <span class="req">*</span></label>
-          <select id="f-channel" required>
-            <option value="" disabled selected>Choose</option>
-            <option>KAM</option>
-            <option>Contact center</option>
-            <option>Social Media</option>
-            <option>Inbound</option>
-            <option>OPS</option>
-            <option>HUB</option>
-            <option>Merchant panel</option>
-          </select>
-        </div>
-
-        <div class="field" id="field-media" style="display:none;">
-          <label>Media <span class="req">*</span></label>
-          <select id="f-media">
-            <option value="" disabled selected>Choose</option>
-            <option>Customer</option>
-            <option>Merchant</option>
-          </select>
-        </div>
-
-        <div class="field full" id="field-social-source" style="display:none;">
-          <label>Social Media Source <span class="req">*</span></label>
-          <div class="checkbox-box">
-            <div class="checkbox-group-title">Groups</div>
-            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee Agent Community [Official]"> CarryBee Agent Community [Official]</label>
-            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee - Merchant Support [Official]"> CarryBee - Merchant Support [Official]</label>
-            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee Community [Official]"> CarryBee Community [Official]</label>
-            <div class="checkbox-group-title">Unofficial Groups</div>
-            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="Unofficial Group"> Unofficial Group</label>
-            <div class="checkbox-group-title">Pages</div>
-            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee"> CarryBee</label>
-            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee Careers"> CarryBee Careers</label>
-            <div class="checkbox-group-title">Other</div>
-            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="Inbox"> Inbox</label>
-            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="Comments"> Comments</label>
-          </div>
-        </div>
-
-        <div class="field">
-          <label>Zone <span class="req">*</span></label>
-          <select id="f-zone" required>
-            <option value="" disabled selected>Choose</option>
-            <option>ISD</option>
-            <option>OSD</option>
-            <option>SUB</option>
-            <option>Central Sort</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Hub Name <span class="req">*</span></label>
-          <select id="f-hub" required disabled>
-            <option value="" selected>Choose zone first</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Issue Status <span class="req">*</span></label>
-          <select id="f-status" required>
-            <option value="" disabled selected>Choose</option>
-            <option>Open</option>
-            <option>In Progress</option>
-            <option>Resolved</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Issue Category <span class="req">*</span></label>
-          <select id="f-category" required>
-            <option value="" disabled selected>Choose</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Issue Subcategory <span class="req">*</span></label>
-          <select id="f-subcategory" required disabled>
-            <option value="" selected>Choose category first</option>
-          </select>
-        </div>
-
-        <div class="field full">
-          <label>Issue Details <span class="req">*</span></label>
-          <textarea id="f-details" required placeholder="What happened? Include any relevant context the assignee will need."></textarea>
-        </div>
-
-        <div class="field full">
-          <label>Attachments <span class="hint">Photo or voice note, optional</span></label>
-          <div class="attach-zone" id="attachZone">
-            <input type="file" id="f-attach-photo" accept="image/*" capture="environment" multiple style="display:none;">
-            <input type="file" id="f-attach-audio" accept="audio/*" capture multiple style="display:none;">
-            <div class="attach-actions">
-              <button type="button" class="attach-btn" id="btnAddPhoto"><span class="attach-icon">📷</span>Add photo</button>
-              <button type="button" class="attach-btn" id="btnAddAudio"><span class="attach-icon">🎙️</span>Add voice note</button>
-            </div>
-            <p class="attach-drop-hint">or drag &amp; drop files here</p>
-          </div>
-          <div id="attachList" class="attach-list"></div>
-        </div>
-      </div>
-
-      <div class="submit-row">
-        <button type="submit" class="primary">Log issue</button>
-        <span id="formMsg" class="status-msg"></span>
-      </div>
-    </form>
-    <p class="foot-note">Logged issues appear on the escalation dashboard artifact — open that separately to review, filter, and export.</p>
-  </div>
-  </div>
-  </div>
-</div>
-
-<script>
-  // Opened from a local `npm start`, talk to that local server instead of the live one.
-  const API_BASE = ['localhost', '127.0.0.1'].includes(location.hostname)
-    ? location.origin
-    : 'https://central-issues-escalation-form.onrender.com';
-
-  // ---------- Light / dark theme ----------
-  (function initTheme(){
-    const THEME_KEY = 'cbe_theme';
-    const toggle = document.getElementById('toggle');
-    function applyTheme(theme){
-      if(theme === 'dark'){ document.documentElement.setAttribute('data-theme', 'dark'); }
-      else{ document.documentElement.removeAttribute('data-theme'); }
-    }
-    const saved = localStorage.getItem(THEME_KEY) || 'light';
-    applyTheme(saved);
-    toggle.checked = saved === 'dark';
-    toggle.addEventListener('change', ()=>{
-      const theme = toggle.checked ? 'dark' : 'light';
-      applyTheme(theme);
-      localStorage.setItem(THEME_KEY, theme);
-    });
-  })();
-
-  let authToken = null;
-  let authEmail = null;
-
-  const HUB_MAP = {"ISD": ["Uttara", "Diabari", "Khilkhet", "Mohakhali", "Badda-Nadda", "Pallabi", "60 Feet", "Mohammadpur", "Kolabagan", "Lalbagh", "Kamrangirchar", "Badda", "Jatrabari", "Khilgaon", "Dhonia", "Demra"], "SUB": ["Gazipur-Joydebpur", "Gazipur-Kapasiya", "Gazipur-Mawna", "Gazipur-Mouchak", "Gazipur-Boardbazar", "Gazipur-Kaliganj", "Savar", "Savar-Baipail", "Savar-Dhamrai", "Narayanganj", "Sonargaon", "Narayanganj-Bandar", "Narayanganj-Araihazar", "Rupganj", "Bhulta-Gawsia", "Dohar-Nawabganj", "Keraniganj-Ati Bazar", "Siddhirganj", "Keraniganj"], "OSD": ["Jhenaidah-Sadar", "Jhenaidah-Maheshpur", "Satkhira-Sadar", "Meherpur-Sadar", "Kushtia-Sadar", "Kushtia-Daulatpur", "Kushtia-Bheramara", "Jessore-Sadar", "Jessore-Sharsha", "Jessore-Manirampur", "Khulna-Sadar", "Jessore-Abhaynagar", "Bagerhat-Sadar", "Khulna-Paikgacha", "Khulna-Dumuria", "Satkhira-Kaliganj", "Bagerhat-Mongla", "Bagerhat-Morrelganj", "Chuadanga-Sadar", "Magura-Sadar", "Narail-Sadar", "Barishal-Sadar", "Barisal-Gournadi", "Barisal-Bakerganj", "Bhola-Charfassion", "Bhola-Sadar", "Pirojpur-Sadar", "Pirojpur-Mathbaria", "Barisal-Muladi", "Jhalokathi-Sadar", "Barguna-Sadar", "Patuakhali-Sadar", "Patuakhali-Galachipa", "Patuakhali-Kalapara", "Shariatpur-Sadar", "Gopalganj-Sadar", "Madaripur-Shibchar", "Madaripur-Sadar", "Faridpur-Sadar", "Gopalganj-Muksudpur", "Shariatpur-Damudya", "Munshiganj-Sirajdikhan", "Tangail-Sakhipur", "Manikganj-Sadar", "Manikganj-Singair", "Munshiganj-Sreenagar", "Tangail-Mirzapur", "Munshiganj-Sadar", "Tangail-Sadar", "Tangail-Ghatail", "Faridpur-Bhanga", "Rajbari-Sadar", "Faridpur-Boalmari", "Sylhet-Golapganj", "Sylhet-Beanibazar", "Sylhet-Sadar", "Sylhet-Jaintiapur", "Sylhet-Kanaighat", "Sylhet-Gowainghat", "Sylhet-Bishwanath", "Sylhet-Osmaninagar", "Sylhet-Fenchuganj", "Sylhet-Dakshin Surma", "Habiganj-Sadar", "Habiganj-Chunarughat", "Habiganj-Madhabpur", "Habiganj-Nabiganj", "Moulvibazar-Barlekha", "Moulvibazar-Kulaura", "Maulvibazar-Sadar", "Moulvibazar-Rajnagar", "Moulvibazar-Sreemangal", "Moulvibazar-Kamalganj", "Sunamganj-Sadar", "Sunamganj-Chhatak", "Sunamganj-Jagannathpur", "Sunamganj-Derai", "Netrokona-Sadar", "Netrakona-Mohonganj", "Jamalpur-Dewanganj", "Sherpur-Sadar", "Mymensingh-Phulpur", "Mymensingh-Bhaluka", "Mymensingh-Gaffargaon", "Mymensingh-Trishal", "Mymensingh-Sadar", "Jamalpur-Sadar", "Joypurhat-Sadar", "Bogra-Sadar", "Bogra-Sherpur", "Bogra-Dhupchanchia", "Sirajganj-Sadar", "Naogaon-Sadar", "Pabna-Bhangura", "Natore-Sadar", "Pabna-Ishwardi", "Pabna-Sadar", "Sirajganj-Shahjadpur", "Chapainawabganj-Shibganj", "Chapainawabganj-Sadar", "Sirajganj-Ullapara", "Naogaon-Patnitala", "Rajshahi-Puthia", "Rajshahi-Sadar", "Gaibandha-Sadar", "Rangpur-Sadar", "Nilphamari-Sadar", "Kurigram-Sadar", "Thakurgaon-Sadar", "Lalmonirhat-Sadar", "Rangpur-Mithapukur", "Nilphamari-Saidpur", "Gaibandha-Gobindaganj", "Panchagarh-Sadar", "Dinajpur-Nawabganj", "Nilphamari-Joldhaka", "Dinajpur-Birganj", "Dinajpur-Sadar", "Narsingdi-Sadar", "Narsingdi-Roypura", "Narsingdi-Shibpur", "Kishoreganj-Mithamain", "Kishoreganj-Pakundia", "Kishoreganj-Sadar", "Kishoreganj-Bhairab", "B.Baria-Sadar", "B.Baria-Kasba", "B.Baria-Nabinagar", "B.Baria-Bancharampur", "B.Baria-Nasirnagar", "B.Baria-Akhaura", "Comilla-Laksam", "Comilla-Sadar", "Comilla-Muradnagar", "Comilla-Chandina", "Comilla-Chauddagram", "Comilla-Daudkandi", "Comilla-Burichang", "Comilla-Nangalkot", "Comilla-Brahmanpara", "Comilla-Barura", "Comilla-Debidwar", "Chandpur-Sadar", "Chandpur-Faridganj", "Chandpur-Hajiganj", "Chandpur-Kachua", "Chandpur-Shahrasti", "Chandpur-Matlab Dakshin", "Noakhali-Senbagh", "Noakhali-Companiganj", "Noakhali-Sadar", "Noakhali-Chatkhil", "Noakhali-Subarnachar", "Noakhali-Begumganj", "Lakshmipur-Kamalnagar", "Lakshmipur-Ramganj", "Lakshmipur-Raipur", "Lakshmipur-Sadar", "Cox's Bazar-Chakaria", "Cox's Bazar-Maheshkhali", "Cox's Bazar-Ramu", "Cox's Bazar-Sadar", "Cox's Bazar-Teknaf", "Cox's Bazar-Ukhia", "CTG-Halishahar", "CTG-Nasirabad", "CTG-Patenga", "CTG-Patiya", "CTG-Fatikchari", "CTG-Raozan", "CTG-Satkania", "CTG-Sitakunda", "Feni-Chhagalnaiya", "Feni-Daganbhuya", "Feni-Sadar", "Feni-Sonagazi", "Khagrachari-Sadar", "Rangamati-Sadar", "Bandarban-Sadar", "CTG-Anwara", "CTG-Banshkhali", "CTG-Rangunia", "CTG-Hathazari", "CTG-Mirsarai"], "Central Sort": ["Central Sort"]};
-
-  const CATEGORY_MAP = {
-    "Delivery Delay": ["Hub processing delay","Rider unavailable","Address / location issue","Weather or force majeure","Traffic / distance issue","Customer unreachable","Vehicle breakdown"],
-    "Payment Issue": ["COD not remitted","Payment delay","Wrong amount collected","Payment not updated in system","Bank / transfer issue"],
-    "Pickup": ["Pickup not done","Pickup delay","Rider no-show","Wrong pickup address","Pickup rescheduled without notice"],
-    "Return Delay": ["Return not initiated","Return stuck at hub","Return rider not assigned","Delayed return to merchant"],
-    "Return Exchange": ["Exchange not processed","Wrong item returned","Exchange delay","Customer refused exchange"],
-    "Reverse Pickup": ["Reverse pickup not scheduled","Reverse pickup delay","Rider refused reverse pickup","Customer unavailable for reverse pickup"],
-    "Charge Extra/Wrong COD": ["Extra charge without notice","Wrong COD amount entered","Weight discrepancy charge","Unauthorized charge"],
-    "Damage": ["Product damaged in transit","Packaging damaged","Damage at hub","Damage during handling"],
-    "No Entry/Cancelled": ["Order cancelled by rider","No entry in system","Cancelled without reason","Duplicate entry"],
-    "Unprofessionalism": ["Rider misbehavior","Hub staff misbehavior","Rude communication","Inappropriate conduct"],
-    "Wrong Routing": ["Sent to wrong hub","Wrong zone assignment","Misrouted parcel","Routing system error"],
-    "Wrong Tag/Parcel Swapped": ["Tag mismatch","Parcel swapped with another order","Barcode / label error","Wrong merchant tag"],
-    "Breach of CLOSEBOX": ["Seal broken before delivery","Unauthorized box opening","Tampering reported by customer","Missing items after breach"],
-    "Urgent Delivery": ["Same-day delivery request","VIP / priority merchant request","Time-sensitive product","Festival / peak season request"]
-  };
-
-  const $ = (id) => document.getElementById(id);
-
-  // ---------- attachments (photo / voice note) ----------
-  const MAX_PHOTO_RAW_BYTES = 20 * 1024 * 1024;
-  const MAX_PHOTO_OUTPUT_BYTES = 1.5 * 1024 * 1024;
-  const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
-  let pendingAttachments = [];
-
-  function renderAttachList(){
-    const box = $('attachList');
-    box.innerHTML = '';
-    pendingAttachments.forEach((a, idx) => {
-      const chip = document.createElement('div');
-      chip.className = 'attach-chip';
-      const preview = a.type === 'photo'
-        ? `<img src="${a.dataUrl}" alt="">`
-        : `<span class="chip-audio-icon">🎙️</span>`;
-      chip.innerHTML = `${preview}<span class="chip-name">${a.filename || a.type}</span>`;
-      const rm = document.createElement('button');
-      rm.type = 'button'; rm.textContent = '✕'; rm.className = 'chip-remove';
-      rm.title = 'Remove';
-      rm.addEventListener('click', () => { pendingAttachments.splice(idx, 1); renderAttachList(); });
-      chip.appendChild(rm);
-      box.appendChild(chip);
-    });
-  }
-
-  function fileToDataUrl(file){
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function compressImage(file, maxDim){
-    return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          if (width >= height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
-          else { width = Math.round(width * (maxDim / height)); height = maxDim; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        URL.revokeObjectURL(url);
-        let quality = 0.75;
-        let dataUrl = canvas.toDataURL('image/jpeg', quality);
-        while (dataUrl.length > MAX_PHOTO_OUTPUT_BYTES * 1.37 && quality > 0.35) {
-          quality -= 0.15;
-          dataUrl = canvas.toDataURL('image/jpeg', quality);
-        }
-        resolve(dataUrl);
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not decode image')); };
-      img.src = url;
-    });
-  }
-
-  async function handleAttachmentFiles(fileList, type){
-    const msg = $('formMsg');
-    for (const file of Array.from(fileList)) {
-      const cap = type === 'photo' ? MAX_PHOTO_RAW_BYTES : MAX_AUDIO_BYTES;
-      if (file.size > cap) {
-        msg.textContent = `${file.name} is too large (max ${Math.round(cap / (1024 * 1024))}MB).`; msg.className = 'status-msg err';
-        continue;
-      }
-      try {
-        const dataUrl = type === 'photo' ? await compressImage(file, 1280) : await fileToDataUrl(file);
-        pendingAttachments.push({ type, filename: file.name, mimeType: type === 'photo' ? 'image/jpeg' : file.type, dataUrl });
-      } catch {
-        msg.textContent = `Could not read ${file.name}.`; msg.className = 'status-msg err';
-      }
-    }
-    renderAttachList();
-  }
-
-  $('btnAddPhoto').addEventListener('click', () => $('f-attach-photo').click());
-  $('btnAddAudio').addEventListener('click', () => $('f-attach-audio').click());
-  $('f-attach-photo').addEventListener('change', (e) => { handleAttachmentFiles(e.target.files, 'photo'); e.target.value = ''; });
-  $('f-attach-audio').addEventListener('change', (e) => { handleAttachmentFiles(e.target.files, 'audio'); e.target.value = ''; });
-
-  const attachZone = $('attachZone');
-  ['dragenter', 'dragover'].forEach(evt => attachZone.addEventListener(evt, (e) => {
-    e.preventDefault(); attachZone.classList.add('dragover');
-  }));
-  ['dragleave', 'drop'].forEach(evt => attachZone.addEventListener(evt, (e) => {
-    e.preventDefault(); attachZone.classList.remove('dragover');
-  }));
-  attachZone.addEventListener('drop', (e) => {
-    const files = Array.from(e.dataTransfer.files || []);
-    const photos = files.filter(f => f.type.startsWith('image/'));
-    const audios = files.filter(f => f.type.startsWith('audio/'));
-    if (photos.length) handleAttachmentFiles(photos, 'photo');
-    if (audios.length) handleAttachmentFiles(audios, 'audio');
-  });
-
-  const MEDIA_CHANNELS = ['Social Media', 'Inbound'];
-  const channelSelect = $('f-channel');
-  const mediaField = $('field-media');
-  const mediaSelect = $('f-media');
-  const socialSourceField = $('field-social-source');
-  const socialSourceBoxes = document.querySelectorAll('.social-source-opt');
-  function resetSocialSource(){
-    socialSourceField.style.display = 'none';
-    socialSourceBoxes.forEach(cb => { cb.checked = false; });
-  }
-  function getSocialSource(){
-    return Array.from(socialSourceBoxes).filter(cb => cb.checked).map(cb => cb.value);
-  }
-  channelSelect.addEventListener('change', ()=>{
-    if(MEDIA_CHANNELS.includes(channelSelect.value)){
-      mediaField.style.display = '';
-      mediaSelect.required = true;
-    } else {
-      mediaField.style.display = 'none';
-      mediaSelect.required = false;
-      mediaSelect.value = '';
-    }
-    if(channelSelect.value === 'Social Media'){
-      socialSourceField.style.display = '';
-    } else {
-      resetSocialSource();
-    }
-  });
-
-  const zoneSelect = $('f-zone');
-  zoneSelect.addEventListener('change', ()=>{
-    const hub = $('f-hub');
-    hub.innerHTML = '';
-    const hubs = HUB_MAP[zoneSelect.value] || [];
-    if(hubs.length){
-      hub.disabled = false;
-      const ph = document.createElement('option');
-      ph.value=''; ph.disabled=true; ph.selected=true; ph.textContent='Choose';
-      hub.appendChild(ph);
-      hubs.forEach(h=>{
-        const o = document.createElement('option'); o.value=h; o.textContent=h;
-        hub.appendChild(o);
-      });
-    } else {
-      hub.disabled = true;
-      const ph = document.createElement('option'); ph.textContent='Choose zone first';
-      hub.appendChild(ph);
-    }
-  });
-
-  const catSelect = $('f-category');
-  Object.keys(CATEGORY_MAP).forEach(cat=>{
-    const o = document.createElement('option');
-    o.value = cat; o.textContent = cat;
-    catSelect.appendChild(o);
-  });
-  catSelect.addEventListener('change', ()=>{
-    const sub = $('f-subcategory');
-    sub.innerHTML = '';
-    const subs = CATEGORY_MAP[catSelect.value] || [];
-    if(subs.length){
-      sub.disabled = false;
-      const ph = document.createElement('option');
-      ph.value=''; ph.disabled=true; ph.selected=true; ph.textContent='Choose';
-      sub.appendChild(ph);
-      subs.forEach(s=>{
-        const o = document.createElement('option'); o.value=s; o.textContent=s;
-        sub.appendChild(o);
-      });
-    } else {
-      sub.disabled = true;
-      const ph = document.createElement('option'); ph.textContent='Choose category first';
-      sub.appendChild(ph);
-    }
-  });
-
-  // ---------- login ----------
-  $('loginForm').addEventListener('submit', async (e)=>{
+function Login({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [msg, setMsg] = useState({ t: '', c: '' });
+  const [busy, setBusy] = useState(false);
+  async function submit(e) {
     e.preventDefault();
-    const msg = $('loginMsg');
-    msg.textContent = 'Signing in…'; msg.className='status-msg';
-    try{
+    setBusy(true); setMsg({ t: 'Signing in…', c: '' });
+    try {
       const res = await fetch(`${API_BASE}/api/auth/login`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          email: $('l-email').value.trim(),
-          password: $('l-password').value
-        })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password })
       });
       const data = await res.json();
-      if(!res.ok){
-        msg.textContent = data.error || 'Sign in failed.'; msg.classList.add('err');
-        return;
-      }
-      authToken = data.token;
-      authEmail = data.email;
-      $('sessionLabel').textContent = data.name || authEmail;
-      $('view-login').style.display = 'none';
-      $('view-app').style.display = 'block';
-      showAppTab('form');
-    }catch(err){
-      msg.textContent = 'Could not reach the server.'; msg.classList.add('err');
-    }
-  });
-
-  $('btnLogout').addEventListener('click', ()=>{
-    authToken = null; authEmail = null;
-    $('loginForm').reset();
-    if(window.ParcelJourney) window.ParcelJourney.reset();
-    showAppTab('form');
-    $('view-app').style.display = 'none';
-    $('view-login').style.display = 'block';
-  });
-
-  // ---------- tabs: Log an Issue / Parcel Journey ----------
-  function showAppTab(tab){
-    const parcel = tab === 'parcel';
-    $('tabForm').classList.toggle('active', !parcel);
-    $('tabParcel').classList.toggle('active', parcel);
-    $('panel-form').hidden = parcel;
-    $('panel-parcel').hidden = !parcel;
-    document.querySelector('.wrap').classList.toggle('wide', parcel);
-    $('pageTitle').textContent = parcel ? 'Parcel Journey' : 'Log an Issue';
-    if(parcel && window.ParcelJourney) window.ParcelJourney.show();
+      if (!res.ok) { setMsg({ t: data.error || 'Sign in failed.', c: 'err' }); return; }
+      onLogin({ token: data.token, email: data.email, label: data.name || data.email });
+    } catch { setMsg({ t: 'Could not reach the server.', c: 'err' }); }
+    finally { setBusy(false); }
   }
-  $('tabForm').addEventListener('click', ()=> showAppTab('form'));
-  $('tabParcel').addEventListener('click', ()=> showAppTab('parcel'));
+  return (
+    <div className="card narrow">
+      <h1>Sign in</h1>
+      <p className="sub">Use your Carrybee login to log an issue.</p>
+      <form onSubmit={submit}>
+        <div className="field" style={{ marginBottom: 16 }}>
+          <label htmlFor="l-email">Email</label>
+          <input id="l-email" type="text" inputMode="email" autoComplete="username" required placeholder="you@carrybee.com" value={email} onChange={e => setEmail(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginBottom: 20 }}>
+          <label htmlFor="l-password">Password</label>
+          <input id="l-password" type="password" autoComplete="current-password" required placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+        </div>
+        <button type="submit" className="primary block" disabled={busy}>Sign in</button>
+        <p className={'msg ' + msg.c} role="status" aria-live="polite" style={{ margin: '12px 0 0' }}>{msg.t}</p>
+      </form>
+    </div>
+  );
+}
 
-  $('issueForm').addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const msg = $('formMsg');
+const EMPTY = { consignment: '', channel: '', media: '', social: [], zone: '', hub: '', status: '', category: '', subcategory: '', details: '' };
 
-    if(channelSelect.value === 'Social Media' && getSocialSource().length === 0){
-      msg.textContent = 'Select at least one Social Media source.'; msg.className='status-msg err';
-      return;
+function IssueForm({ session, onExpire }) {
+  const [f, setF] = useState(EMPTY);
+  const [files, setFiles] = useState([]);
+  const [msg, setMsg] = useState({ t: '', c: '' });
+  const [busy, setBusy] = useState(false);
+  const [over, setOver] = useState(false);
+  const photoRef = useRef(null), audioRef = useRef(null);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const needsMedia = MEDIA_CHANNELS.includes(f.channel);
+  const isSocial = f.channel === 'Social Media';
+
+  const onChannel = v => setF(p => ({ ...p, channel: v, media: MEDIA_CHANNELS.includes(v) ? p.media : '', social: v === 'Social Media' ? p.social : [] }));
+  const toggleSocial = v => setF(p => ({ ...p, social: p.social.includes(v) ? p.social.filter(x => x !== v) : [...p.social, v] }));
+
+  const toUrl = file => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(file); });
+  async function addFiles(list, type) {
+    for (const file of Array.from(list)) {
+      if (file.size > MAX_ATTACHMENT_BYTES) { setMsg({ t: `${file.name} is too large (max 6MB per file).`, c: 'err' }); continue; }
+      try { const dataUrl = await toUrl(file); setFiles(p => [...p, { type, filename: file.name, mimeType: file.type, dataUrl }]); }
+      catch { setMsg({ t: `Could not read ${file.name}.`, c: 'err' }); }
     }
+  }
+  function onDrop(e) {
+    e.preventDefault(); setOver(false);
+    const all = Array.from(e.dataTransfer.files || []);
+    const ph = all.filter(x => x.type.startsWith('image/')), au = all.filter(x => x.type.startsWith('audio/'));
+    if (ph.length) addFiles(ph, 'photo');
+    if (au.length) addFiles(au, 'audio');
+  }
 
-    msg.textContent = 'Saving…'; msg.className='status-msg';
-
+  async function submit(e) {
+    e.preventDefault();
+    if (isSocial && f.social.length === 0) { setMsg({ t: 'Select at least one Social Media source.', c: 'err' }); return; }
+    setBusy(true); setMsg({ t: 'Saving…', c: '' });
     const issue = {
-      consignment: $('f-consignment').value.trim(),
-      channel: $('f-channel').value,
-      media: MEDIA_CHANNELS.includes($('f-channel').value) ? $('f-media').value : '',
-      socialSource: channelSelect.value === 'Social Media' ? getSocialSource().join(', ') : '',
-      zone: $('f-zone').value,
-      hub: $('f-hub').value.trim(),
-      status: $('f-status').value,
-      category: $('f-category').value,
-      subcategory: $('f-subcategory').value,
-      details: $('f-details').value.trim(),
-      attachments: pendingAttachments
+      consignment: f.consignment.trim(), channel: f.channel, media: needsMedia ? f.media : '',
+      socialSource: isSocial ? f.social.join(', ') : '', zone: f.zone, hub: f.hub.trim(),
+      status: f.status, category: f.category, subcategory: f.subcategory,
+      details: f.details.trim(), attachments: files
     };
-
-    try{
+    try {
       const res = await fetch(`${API_BASE}/api/issues`, {
-        method: 'POST',
-        headers: {
-          'Content-Type':'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` },
         body: JSON.stringify(issue)
       });
       const data = await res.json();
-      if(!res.ok){
-        if(res.status === 401){
-          msg.textContent = 'Session expired — please sign in again.'; msg.classList.add('err');
-          $('btnLogout').click();
-          return;
-        }
-        msg.textContent = data.error || 'Could not save — try again.'; msg.classList.add('err');
-        return;
+      if (!res.ok) {
+        if (res.status === 401) { onExpire(); return; }
+        setMsg({ t: data.error || 'Could not save — try again.', c: 'err' }); return;
       }
-      msg.textContent = 'Issue logged.'; msg.classList.add('ok');
-      $('issueForm').reset();
-      $('f-hub').innerHTML = '<option value="" selected>Choose zone first</option>';
-      $('f-hub').disabled = true;
-      $('f-subcategory').innerHTML = '<option value="" selected>Choose category first</option>';
-      $('f-subcategory').disabled = true;
-      mediaField.style.display = 'none';
-      mediaSelect.required = false;
-      resetSocialSource();
-      pendingAttachments = [];
-      renderAttachList();
-      setTimeout(()=>{ msg.textContent=''; }, 3000);
-    }catch(err){
-      msg.textContent = 'Could not reach the server — try again.'; msg.classList.add('err');
-    }
-  });
+      setMsg({ t: 'Issue logged.', c: 'ok' });
+      setF(EMPTY); setFiles([]);
+      setTimeout(() => setMsg({ t: '', c: '' }), 3000);
+    } catch { setMsg({ t: 'Could not reach the server — try again.', c: 'err' }); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card">
+      <form onSubmit={submit}>
+        <div className="sec">Issue</div>
+        <div className="grid">
+          <Field id="f-consignment" label="Consignment ID / Merchant Name" required full>
+            <input id="f-consignment" type="text" required placeholder="e.g. CB-4471290 or Sundora" value={f.consignment} onChange={e => set('consignment', e.target.value)} />
+          </Field>
+          <Field id="f-channel" label="Channel" required>
+            <Select id="f-channel" value={f.channel} onChange={onChannel} options={CHANNELS} />
+          </Field>
+          {needsMedia && (
+            <Field id="f-media" label="Media" required>
+              <Select id="f-media" value={f.media} onChange={v => set('media', v)} options={['Customer', 'Merchant']} />
+            </Field>
+          )}
+          {isSocial && (
+            <div className="field full">
+              <span className="lbl" id="social-lbl">Social Media Source<span className="req" aria-hidden="true">*</span></span>
+              <div className="checks" role="group" aria-labelledby="social-lbl">
+                {SOCIAL_GROUPS.map(([title, items]) => (
+                  <React.Fragment key={title}>
+                    <h4>{title}</h4>
+                    {items.map(v => (
+                      <label key={v} className="check"><input type="checkbox" checked={f.social.includes(v)} onChange={() => toggleSocial(v)} />{v}</label>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="sec">Location</div>
+        <div className="grid">
+          <Field id="f-zone" label="Zone" required>
+            <Select id="f-zone" value={f.zone} onChange={v => setF(p => ({ ...p, zone: v, hub: '' }))} options={ZONES} />
+          </Field>
+          <Field id="f-hub" label="Hub Name" required>
+            <Select id="f-hub" value={f.hub} onChange={v => set('hub', v)} options={HUB_MAP[f.zone] || []} disabled={!f.zone} />
+          </Field>
+        </div>
+
+        <div className="sec">Classification</div>
+        <div className="grid">
+          <Field id="f-status" label="Issue Status" required>
+            <Select id="f-status" value={f.status} onChange={v => set('status', v)} options={STATUSES} />
+          </Field>
+          <div className="field" aria-hidden="true" />
+          <Field id="f-category" label="Issue Category" required>
+            <Select id="f-category" value={f.category} onChange={v => setF(p => ({ ...p, category: v, subcategory: '' }))} options={Object.keys(CATEGORY_MAP)} />
+          </Field>
+          <Field id="f-subcategory" label="Issue Subcategory" required>
+            <Select id="f-subcategory" value={f.subcategory} onChange={v => set('subcategory', v)} options={CATEGORY_MAP[f.category] || []} disabled={!f.category} />
+          </Field>
+        </div>
+
+        <div className="sec">Details</div>
+        <div className="grid">
+          <Field id="f-details" label="Issue Details" required full>
+            <textarea id="f-details" required placeholder="What happened? Include any relevant context the assignee will need." value={f.details} onChange={e => set('details', e.target.value)} />
+          </Field>
+          <div className="field full">
+            <span className="lbl">Attachments<span className="hint">Photo or voice note, optional</span></span>
+            <div className={'drop' + (over ? ' over' : '')} onDragEnter={e => { e.preventDefault(); setOver(true); }} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={e => { e.preventDefault(); setOver(false); }} onDrop={onDrop}>
+              <input ref={photoRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addFiles(e.target.files, 'photo'); e.target.value = ''; }} />
+              <input ref={audioRef} type="file" accept="audio/*" capture multiple hidden onChange={e => { addFiles(e.target.files, 'audio'); e.target.value = ''; }} />
+              <div className="row">
+                <button type="button" className="ghost" onClick={() => photoRef.current.click()}><Camera />Add photo</button>
+                <button type="button" className="ghost" onClick={() => audioRef.current.click()}><Mic />Add voice note</button>
+              </div>
+              <p>or drag &amp; drop files here</p>
+            </div>
+            {files.length > 0 && (
+              <div className="chips">
+                {files.map((a, i) => (
+                  <div className="chip" key={i}>
+                    {a.type === 'photo' ? <img src={a.dataUrl} alt="" /> : <span className="ph"><Mic /></span>}
+                    <span className="n">{a.filename || a.type}</span>
+                    <button type="button" aria-label={`Remove ${a.filename || a.type}`} onClick={() => setFiles(p => p.filter((_, j) => j !== i))}><Close /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="submit">
+          <button type="submit" className="primary" disabled={busy}>{busy ? 'Saving…' : 'Log issue'}</button>
+          <span className={'msg ' + msg.c} role="status" aria-live="polite">{msg.t}</span>
+        </div>
+      </form>
+      <p className="foot">Logged issues appear on the escalation dashboard — open that separately to review, filter, and export.</p>
+    </div>
+  );
+}
+
+function App() {
+  const [theme, toggleTheme] = useTheme();
+  const [session, setSession] = useState(null);
+  return (
+    <>
+      <header className="bar">
+        <div className="bar-in">
+          <div className="brand"><span className="mark" aria-hidden="true">CB</span><b>Carrybee Express</b></div>
+          <button type="button" className="icon-btn" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
+            {theme === 'dark' ? <Moon /> : <Sun />}
+          </button>
+        </div>
+      </header>
+      <main className="wrap">
+        {!session ? <Login onLogin={setSession} /> : (
+          <>
+            <div className="session">
+              <span>Signed in as <strong>{session.label}</strong></span>
+              <button type="button" className="link" onClick={() => setSession(null)}>Sign out</button>
+            </div>
+            <h1>Log an Issue</h1>
+            <p className="sub">Log an operational issue for a consignment or merchant. Submissions feed the escalation dashboard directly — no separate sync step.</p>
+            <IssueForm session={session} onExpire={() => setSession(null)} />
+          </>
+        )}
+      </main>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
-<script src="parcel-journey-ui.js"></script>
 </body>
 </html>
