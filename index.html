@@ -67,7 +67,7 @@ select:disabled{opacity:.5;cursor:not-allowed}textarea{min-height:110px;resize:v
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 26px;background:var(--brand);color:var(--ink);border:1px solid var(--brand);border-radius:10px;font:700 14.5px 'Inter',sans-serif;cursor:pointer;transition:filter .15s,transform .1s}
 .btn:hover{filter:brightness(.94)}.btn:active{transform:translateY(1px)}.btn:disabled{opacity:.6;cursor:progress}
 .btn.block{width:100%}
-.submit{display:flex;align-items:center;gap:16px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border)}
+.submit{display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border)}
 .msg{font-size:13.5px;font-weight:600;min-height:20px}.msg.ok{color:var(--green)}.msg.err{color:var(--red)}
 .note{margin:16px 0 0;font-size:12.5px;color:var(--text-faint)}
 /* login */
@@ -234,7 +234,7 @@ function App(){
   const parcel=tab==='parcel';
   return html`<${React.Fragment}>
   <header className="bar"><div className="bar-in">
-    <div className="brand"><${Logo}/><div className="brand-txt"><b>Issue Escalation</b><span>Operations</span></div></div>
+    <div className="brand"><${Logo}/><div className="brand-txt"><b>Issue Escalation</b></div></div>
     ${user&&html`<span className="who">${user}</span>`}
     <button type="button" className="icon-btn" onClick=${()=>setTheme(theme==='dark'?'light':'dark')} aria-label=${theme==='dark'?'Switch to light theme':'Switch to dark theme'}><${Ic} n=${theme==='dark'?'sun':'moon'}/></button>
     ${user&&html`<button type="button" className="icon-btn" id="btnLogout" onClick=${logout}><${Ic} n="out"/>Sign out</button>`}
