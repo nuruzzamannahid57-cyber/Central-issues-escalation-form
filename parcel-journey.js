@@ -85,6 +85,9 @@ const FID_STAGES = [
   { key: 'cw_subsort', label: 'CW to Sub Sort SLA', short: 'CW to Sub Sort', column: 'CW-Sub Sort SLA', hub: 'delivery',
     from: 'Central Warehouse Reached at', to: 'Sub Sort Reached at', start: 'cwAt', end: 'subSortAt',
     applies: row => row.firstSort === 'cw' && row.lastSort === 'subsort', downstream: ['lmhAt', 'attemptAt', 'terminalAt'] },
+  { key: 'subsort_cw', label: 'Sub Sort to CW SLA', short: 'Sub Sort to CW', column: 'Sub Sort-CW SLA', hub: 'pickup',
+    from: 'Sub Sort Reached at', to: 'Central Warehouse Reached at', start: 'subSortAt', end: 'cwAt',
+    applies: row => row.firstSort === 'subsort' && row.lastSort === 'cw', downstream: ['lmhAt', 'attemptAt', 'terminalAt'] },
   { key: 'cw_lmh', label: 'CW to LMH SLA', short: 'CW to LMH', column: 'CW-LMH SLA', hub: 'delivery',
     from: 'Central Warehouse Reached at', to: 'Basket Reached LMH at', start: 'cwAt', end: 'lmhAt',
     applies: row => row.lastSort === 'cw', downstream: ['attemptAt', 'terminalAt'] },
@@ -184,10 +187,10 @@ const JOURNEYS = {
     parcelsTable: 'pj_parcels', matrixTable: 'sla_hub_matrix',
     preferredSheet: 'Parcel Journey', template: 'templates/FID_SLA_upload_template.csv',
     columns: FID_COLUMNS, stages: FID_STAGES,
-    hardDefaults: { pickup_fmh: 4, fmh_cw: 6, fmh_subsort: 5, cw_subsort: 4, cw_lmh: 12,
+    hardDefaults: { pickup_fmh: 4, fmh_cw: 6, fmh_subsort: 5, cw_subsort: 4, subsort_cw: 4, cw_lmh: 12,
                     subsort_lmh: 10, lmh_attempt: 14, lmh_terminal: 20, terminal_invoice: 8 },
     plannedFields: { cutoffAt: true, commitmentAt: true },
-    pipe: [['pickup'], ['pickup_fmh'], ['fmh_cw', 'fmh_subsort'], ['cw_subsort'],
+    pipe: [['pickup'], ['pickup_fmh'], ['fmh_cw', 'fmh_subsort'], ['cw_subsort', 'subsort_cw'],
            ['cw_lmh', 'subsort_lmh'], ['lmh_attempt', 'lmh_terminal'], ['terminal_invoice']]
   },
   rid: {
