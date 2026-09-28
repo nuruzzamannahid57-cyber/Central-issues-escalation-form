@@ -173,6 +173,26 @@ async function ensureTables() {
   // every pre-existing open issue would sit outside the ladder forever.
   await db.execute(`UPDATE issues SET level_started_at = ts WHERE level_started_at IS NULL`);
 
+  // Step-by-step history of every issue (logged, escalated, Ops reply, closed).
+  // The Parcel Journey code also writes 'logged' rows here when the columns
+  // issue_id/ts/type/actor exist, so this shape stays compatible with it.
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS issue_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      issue_id TEXT NOT NULL,
+      ts TEXT NOT NULL,
+      type TEXT NOT NULL,
+      actor TEXT,
+      detail TEXT
+    )
+  `);
+  try {
+    await db.execute('ALTER TABLE issue_events ADD COLUMN detail TEXT');
+  } catch (err) {
+    if (!String(err.message || '').includes('duplicate column')) throw err;
+  }
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_issue_events_issue ON issue_events (issue_id, ts)');
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS hub_assignments (
       hub_name TEXT PRIMARY KEY,
@@ -192,6 +212,18 @@ async function ensureTables() {
     await db.execute('ALTER TABLE hub_assignments ADD COLUMN hub_email TEXT');
   } catch (err) {
     if (!String(err.message || '').includes('duplicate column')) throw err;
+  }
+}
+
+// Best-effort history write: a failure here must never break the action itself.
+async function logEvent(issueId, type, actor, detail, ts) {
+  try {
+    await db.execute({
+      sql: 'INSERT INTO issue_events (issue_id, ts, type, actor, detail) VALUES (?, ?, ?, ?, ?)',
+      args: [issueId, ts || new Date().toISOString(), type, actor || null, detail ? JSON.stringify(detail) : null]
+    });
+  } catch (err) {
+    console.error('logEvent failed:', err.message);
   }
 }
 
@@ -439,6 +471,7 @@ app.post('/api/issues', requireAuthOrService, async (req, res) => {
         await db.execute({ sql: 'UPDATE issues SET merchant_notified_at = ? WHERE id = ?', args: [new Date().toISOString(), id] });
       }
     }).catch(err => console.error('notifyMerchant failed:', err));
+    await logEvent(id, 'logged', loggedBy, { hub: i.hub, zone: correctedZone, category: i.category, subcategory: i.subcategory, channel: i.channel }, ts);
     // Tell the caller whether any Ops Console will actually see this hub
     // (hubs nobody is assigned to in hub_assignments get the issue but no queue).
     let assigned = null;
@@ -492,6 +525,61 @@ app.get('/api/hubs', requireAuthOrService, (req, res) => {
   res.json(Object.keys(HUB_TO_ZONE).sort((a, b) => a.localeCompare(b)).map(name => ({ name, zone: HUB_TO_ZONE[name] })));
 });
 
+// Full step-by-step history of one issue, oldest first. Issues raised before
+// history was recorded have no rows, so a best-effort timeline is rebuilt from
+// the columns on the issue itself (marked approximate: true).
+app.get('/api/issues/:id/events', requireAuth, async (req, res) => {
+  try {
+    const issueRes = await db.execute({
+      sql: `SELECT issues.*, COALESCE(users.name, issues.logged_by) AS logged_by_name
+            FROM issues LEFT JOIN users ON users.email = issues.logged_by WHERE issues.id = ?`,
+      args: [req.params.id]
+    });
+    const issue = issueRes.rows[0];
+    if (!issue) return res.status(404).json({ error: 'Issue not found.' });
+    const evRes = await db.execute({
+      sql: 'SELECT ts, type, actor, detail FROM issue_events WHERE issue_id = ? ORDER BY ts ASC, id ASC',
+      args: [req.params.id]
+    });
+    const events = evRes.rows.map(r => {
+      let detail = null;
+      try { detail = r.detail ? JSON.parse(r.detail) : null; } catch { detail = null; }
+      return { ts: r.ts, type: r.type, actor: r.actor, detail };
+    });
+    let approximate = false;
+    if (!events.some(e => e.type === 'logged')) {
+      approximate = true;
+      events.unshift({ ts: issue.ts, type: 'logged', actor: issue.logged_by_name || issue.logged_by,
+        detail: { hub: issue.hub, zone: issue.zone, category: issue.category, subcategory: issue.subcategory, channel: issue.channel } });
+    }
+    if (approximate) {
+      if (issue.remarks && issue.updated_at) {
+        events.push({ ts: issue.updated_at, type: issue.status === 'Resolved' ? 'resolved' : 'ops_update', actor: issue.remarks_by,
+          detail: { status: issue.status, remarks: issue.remarks } });
+      }
+      if (issue.closed_at) events.push({ ts: issue.closed_at, type: 'closed', actor: issue.closed_by, detail: { merchantInformed: issue.merchant_informed } });
+      events.sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+    }
+    // Show people by name instead of email where the users table knows them.
+    const emails = [...new Set(events.map(e => e.actor).filter(a => a && String(a).includes('@')))];
+    if (emails.length) {
+      const nameRes = await db.execute({
+        sql: `SELECT email, name FROM users WHERE email IN (${emails.map(() => '?').join(',')})`,
+        args: emails
+      });
+      const names = new Map(nameRes.rows.filter(r => r.name).map(r => [String(r.email).toLowerCase(), r.name]));
+      events.forEach(e => { e.actor_name = (e.actor && names.get(String(e.actor).toLowerCase())) || e.actor || null; });
+    } else {
+      events.forEach(e => { e.actor_name = e.actor || null; });
+    }
+    res.json({ events, approximate, issue: { id: issue.id, ts: issue.ts, status: issue.status,
+      escalation_level: issue.escalation_level, response_status: issue.response_status } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not fetch history.' });
+  }
+});
+
 // KAM-side close: only the KAM who originally logged the issue can close it
 // (not anyone else's), only once Ops/Hub has actually left a remark (nothing
 // to confirm yet otherwise), and only with an explicit answer on whether the
@@ -524,10 +612,56 @@ app.patch('/api/issues/:id/close', requireAuth, async (req, res) => {
             WHERE id = ?`,
       args: [merchantInformed, req.user, now, now, req.params.id]
     });
+    await logEvent(req.params.id, 'closed', req.user, { merchantInformed }, now);
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not close issue.' });
+  }
+});
+
+// KAM-side Re-process: the KAM isn't satisfied with the hub's answer, so the
+// issue goes back to the hub as a fresh L3 / Regular / Open item with a new
+// escalation clock. Same ownership rule as close (only the KAM who logged it),
+// and it needs a hub response to push back on. The reason is appended to the
+// issue details so the hub sees why it is back; the hub's previous remark is
+// cleared from the live row (a reprocessed issue must wait for a NEW reply
+// before it can be closed) but is kept in the history event so nothing is lost.
+app.patch('/api/issues/:id/reprocess', requireAuth, async (req, res) => {
+  try {
+    const reason = String((req.body || {}).reason || '').trim();
+    if (reason.length < 3) return res.status(400).json({ error: 'Tell the hub why this is being re-processed.' });
+    if (reason.length > 500) return res.status(400).json({ error: 'Reason is too long (max 500 characters).' });
+    const existing = await db.execute({ sql: 'SELECT * FROM issues WHERE id = ?', args: [req.params.id] });
+    const issue = existing.rows[0];
+    if (!issue) return res.status(404).json({ error: 'Issue not found.' });
+    if ((issue.logged_by || '').toLowerCase() !== req.user.toLowerCase()) {
+      return res.status(403).json({ error: 'You can only re-process issues you logged yourself.' });
+    }
+    if (!issue.remarks) {
+      return res.status(400).json({ error: 'The hub has not replied yet, so there is nothing to re-process.' });
+    }
+    const who = await db.execute({ sql: 'SELECT name FROM users WHERE email = ?', args: [req.user] });
+    const name = (who.rows[0] && who.rows[0].name) || req.user;
+    const now = new Date().toISOString();
+    const when = new Date(now).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const details = `${issue.details || ''}\n\n[Re-processed by ${name}, ${when}] ${reason}`;
+    await db.execute({
+      sql: `UPDATE issues
+            SET status = 'Open', response_status = 'Regular', escalation_level = 'L3', level_started_at = ?,
+                remarks = NULL, remarks_by = NULL, updated_at = ?,
+                closed_by = NULL, closed_at = NULL, merchant_informed = NULL, details = ?
+            WHERE id = ?`,
+      args: [now, now, details, req.params.id]
+    });
+    await logEvent(req.params.id, 'reprocessed', req.user, {
+      reason, hub: issue.hub, previousStatus: issue.status, previousRemarks: issue.remarks,
+      previousRemarksBy: issue.remarks_by || null, wasClosed: !!issue.closed_by
+    }, now);
+    res.json({ ok: true, hub: issue.hub });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not re-process issue.' });
   }
 });
 
@@ -697,6 +831,7 @@ app.patch('/api/ops/issues/:id', requireAuth, async (req, res) => {
         ? [status, remarks || null, req.user, new Date().toISOString(), new Date().toISOString(), responseStatus, req.params.id]
         : [status, remarks || null, req.user, new Date().toISOString(), new Date().toISOString(), req.params.id]
     });
+    await logEvent(req.params.id, status === 'Resolved' ? 'resolved' : 'ops_update', req.user, { status, remarks: remarks || null });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -970,6 +1105,7 @@ async function runEscalationSweep() {
       let started = issue.level_started_at ? new Date(issue.level_started_at).getTime() : null;
       if (!started || Number.isNaN(started)) continue;
       let advanced = false;
+      const steps = [];
       // Walk every level this issue has actually earned in one pass — e.g. an
       // issue that's sat for 3 days should land on "Very critical" in a
       // single sweep, not crawl up one level per 10-minute run. Each step
@@ -989,12 +1125,14 @@ async function runEscalationSweep() {
         level = rule.nextLevel;
         status = rule.nextStatus;
         advanced = true;
+        steps.push({ level, status, at: new Date(started).toISOString() });
       }
       if (!advanced) continue;
       await db.execute({
         sql: `UPDATE issues SET escalation_level = ?, response_status = ?, level_started_at = ? WHERE id = ?`,
         args: [level, status, new Date(started).toISOString(), issue.id]
       });
+      for (const step of steps) await logEvent(issue.id, 'escalated', 'system', { level: step.level, status: step.status }, step.at);
       escalated++;
     } catch (err) {
       console.error(`Escalation sweep: issue ${issue.id} failed:`, err);
