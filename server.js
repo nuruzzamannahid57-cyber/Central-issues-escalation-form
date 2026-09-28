@@ -11,6 +11,7 @@ const {
   TURSO_DATABASE_URL,
   TURSO_AUTH_TOKEN,
   SETUP_KEY,      // required header value to create new login users via /api/auth/register
+  AD_TEAM_SERVICE_KEY, // shared secret the AD Team Issues Dashboard sends as x-service-key ("Send to ISF")
   PORT = 3000,
   SMTP_HOST,
   SMTP_PORT = 587,
@@ -65,6 +66,29 @@ function requireAuth(req, res, next) {
   }
   req.user = session.email;
   next();
+}
+
+// The AD Team Issues Dashboard ("Send to ISF") is a server-less page, so it
+// can't hold a user session. It sends a shared secret in `x-service-key`
+// instead. That key is deliberately limited to three things: create an issue,
+// read one issue back (status + remarks) and read the hub list. It can't list
+// issues, edit them or touch ops/admin routes.
+function serviceKeyMatches(req) {
+  const sent = req.headers['x-service-key'];
+  if (!AD_TEAM_SERVICE_KEY || typeof sent !== 'string' || !sent) return false;
+  const a = Buffer.from(sent);
+  const b = Buffer.from(AD_TEAM_SERVICE_KEY);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function requireAuthOrService(req, res, next) {
+  if (req.headers['x-service-key'] !== undefined) {
+    if (!serviceKeyMatches(req)) return res.status(401).json({ error: 'Invalid service key.' });
+    req.user = 'ad-team-dashboard';
+    req.isService = true;
+    return next();
+  }
+  return requireAuth(req, res, next);
 }
 
 // ---------- table setup (runs on boot, safe to re-run) ----------
@@ -337,8 +361,25 @@ const HUB_TO_ZONE = {};
 for (const [zone, hubs] of Object.entries(HUB_MAP)) {
   for (const hub of hubs) HUB_TO_ZONE[hub] = zone;
 }
+// hub-info.json (the Hub Info list) knows a few hubs HUB_MAP doesn't (Vatara,
+// 3PL, the Sub Sorts, ...). Add them, but never override HUB_MAP.
+try {
+  for (const h of require('./hub-info.json')) {
+    if (h && h.name && h.region && !HUB_TO_ZONE[h.name]) HUB_TO_ZONE[h.name] = h.region;
+  }
+} catch (err) {
+  console.warn('hub-info.json not loaded into HUB_TO_ZONE:', err.message);
+}
+const HUB_LOWER = new Map(Object.keys(HUB_TO_ZONE).map(name => [name.toLowerCase(), name]));
+// Exact or case/space-insensitive match -> { name, zone }, or null when the
+// hub is not one we know.
+function resolveHub(input) {
+  const key = String(input || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const name = HUB_LOWER.get(key);
+  return name ? { name, zone: HUB_TO_ZONE[name] } : null;
+}
 
-app.post('/api/issues', requireAuth, async (req, res) => {
+app.post('/api/issues', requireAuthOrService, async (req, res) => {
   const i = req.body || {};
   const required = ['consignment', 'channel', 'zone', 'hub', 'status', 'category', 'subcategory', 'details'];
   if (['Social Media', 'Inbound'].includes(i.channel)) {
@@ -356,10 +397,23 @@ app.post('/api/issues', requireAuth, async (req, res) => {
   // Diabari/ISD hub tagged with zone "Central Sort" by an automated feed)
   // can't get written to the DB. If the hub isn't recognized, fall back to
   // whatever zone was sent rather than rejecting the whole submission.
-  const correctedZone = HUB_TO_ZONE[i.hub] || i.zone;
-  if (HUB_TO_ZONE[i.hub] && HUB_TO_ZONE[i.hub] !== i.zone) {
+  const knownHub = resolveHub(i.hub);
+  // Anything sent by the AD dashboard must name a real hub: that hub decides
+  // whether the issue lands with ISD, OSD, SUB or Central Sort ops, so an
+  // unknown name is rejected instead of being silently dropped into Central.
+  if (req.isService && !knownHub) {
+    return res.status(400).json({ error: `Unknown hub "${i.hub}". Pick a hub from the list.` });
+  }
+  if (knownHub) i.hub = knownHub.name;
+  const correctedZone = knownHub ? knownHub.zone : i.zone;
+  if (knownHub && knownHub.zone !== i.zone) {
     console.warn(`[zone-correction] hub "${i.hub}" sent with zone "${i.zone}" by ${req.user} — corrected to "${correctedZone}"`);
   }
+  // Who to record as the logger: the AD dashboard passes the signed-in AD
+  // user's email as `loggedBy`; falls back to the service identity.
+  const loggedBy = req.isService
+    ? (String(i.loggedBy || '').trim().toLowerCase() || req.user)
+    : req.user;
   // Attachments come in as [{ type: 'photo'|'audio', filename, mimeType, dataUrl }].
   // Validated loosely here — the point is to reject obvious garbage, not to
   // be a full MIME sniffer.
@@ -378,14 +432,21 @@ app.post('/api/issues', requireAuth, async (req, res) => {
               (id, ts, consignment, channel, media, social_source, zone, hub, status, category, subcategory, details, logged_by,
                escalation_level, response_status, level_started_at, attachments)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'L3', 'Regular', ?, ?)`,
-      args: [id, ts, i.consignment, i.channel, i.media || null, i.socialSource || null, correctedZone, i.hub, i.status, i.category, i.subcategory, i.details, req.user, ts, attachments]
+      args: [id, ts, i.consignment, i.channel, i.media || null, i.socialSource || null, correctedZone, i.hub, i.status, i.category, i.subcategory, i.details, loggedBy, ts, attachments]
     });
     notifyMerchant({ id, consignment: i.consignment }).then(async ok => {
       if (ok) {
         await db.execute({ sql: 'UPDATE issues SET merchant_notified_at = ? WHERE id = ?', args: [new Date().toISOString(), id] });
       }
     }).catch(err => console.error('notifyMerchant failed:', err));
-    res.json({ ok: true, id, ts });
+    // Tell the caller whether any Ops Console will actually see this hub
+    // (hubs nobody is assigned to in hub_assignments get the issue but no queue).
+    let assigned = null;
+    try {
+      const a = await db.execute({ sql: 'SELECT 1 FROM hub_assignments WHERE hub_name = ? LIMIT 1', args: [i.hub] });
+      assigned = a.rows.length > 0;
+    } catch (err) { /* informational only */ }
+    res.json({ ok: true, id, ts, zone: correctedZone, hub: i.hub, assigned });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not save issue.' });
@@ -405,6 +466,30 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Could not fetch issues.' });
   }
+});
+
+// One issue's live state, for the AD dashboard to show Ops remarks. Returns
+// only what that dashboard displays — not attachments or the logger's identity.
+app.get('/api/issues/:id', requireAuthOrService, async (req, res) => {
+  try {
+    const result = await db.execute({
+      sql: `SELECT id, ts, consignment, zone, hub, status, category, subcategory,
+                   remarks, remarks_by, updated_at, escalation_level, response_status, level_started_at
+            FROM issues WHERE id = ?`,
+      args: [req.params.id]
+    });
+    if (!result.rows[0]) return res.status(404).json({ error: 'Issue not found.' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not fetch issue.' });
+  }
+});
+
+// Full hub -> zone list (ISD / OSD / SUB / Central Sort) so callers pick from
+// the same names this server accepts instead of a hand-copied snapshot.
+app.get('/api/hubs', requireAuthOrService, (req, res) => {
+  res.json(Object.keys(HUB_TO_ZONE).sort((a, b) => a.localeCompare(b)).map(name => ({ name, zone: HUB_TO_ZONE[name] })));
 });
 
 // KAM-side close: only the KAM who originally logged the issue can close it
