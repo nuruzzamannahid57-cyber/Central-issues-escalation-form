@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Escalation Dashboard — Carrybee Express</title>
+<title>Log an Issue — Carrybee Express</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -16,13 +16,8 @@
     --text-dim: #ABA495;
     --text-faint: #766F60;
     --accent: #E08A3E;
-    --accent-soft: #E08A3E22;
     --red: #C4544A;
-    --red-soft: #C4544A22;
     --green: #7A9B6E;
-    --green-soft: #7A9B6E22;
-    --gold: #D9B34E;
-    --gold-soft: #D9B34E22;
   }
   :root[data-theme="light"]{
     --bg: #F7F5EF;
@@ -33,171 +28,73 @@
     --text-dim: #5C5748;
     --text-faint: #8B8471;
     --accent: #C9701A;
-    --accent-soft: #C9701A22;
     --red: #B03B33;
-    --red-soft: #B03B3322;
     --green: #4F7A45;
-    --green-soft: #4F7A4522;
-    --gold: #A9821E;
-    --gold-soft: #A9821E22;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;transition:background-color .25s, color .25s;}
-  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px;}
+  .wrap{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
   header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:24px;}
   .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.04em;color:var(--accent);}
   h1{font-family:'Fraunces',serif;font-weight:500;font-size:32px;margin:6px 0 0;letter-spacing:-.01em;}
 
-  .stat-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px;}
-  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 16px 14px;}
-  .stat .n{font-family:'Fraunces',serif;font-size:28px;font-weight:500;}
-  .stat .l{font-size:11.5px;color:var(--text-dim);margin-top:2px;}
-  .stat.open .n{color:var(--red);}
-  .stat.progress .n{color:var(--gold);}
-  .stat.escalated .n{color:var(--accent);}
-  .stat.resolved .n{color:var(--green);}
-
-  .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:20px;}
-  .panel h2{font-family:'Fraunces',serif;font-size:17px;font-weight:500;margin:0 0 16px;}
-  .filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
-  .filter-row select, .filter-row input[type=text]{
-    padding:8px 10px;font-size:13px;background:var(--surface-2);border:1px solid var(--border);
-    color:var(--text);border-radius:8px;font-family:'Inter',sans-serif;
-  }
-  select{appearance:none;-webkit-appearance:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23ABA495'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
-  }
-  .filter-row input[type=text]{min-width:200px;}
-  .filter-row .spacer{flex:1;}
-  button.ghost{
-    background:transparent;border:1px solid var(--border);color:var(--text-dim);
-    font-family:'Inter',sans-serif;font-weight:600;font-size:13px;padding:11px 18px;
-    border-radius:8px;cursor:pointer;
-  }
-  button.ghost:hover{color:var(--text);border-color:var(--text-dim);}
-
-  .bar-row{display:grid;grid-template-columns:180px 1fr 34px;align-items:center;gap:10px;font-size:12.5px;margin-bottom:9px;}
-  .bar-row .lbl{color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .bar-track{background:var(--surface-2);border-radius:5px;height:9px;overflow:hidden;}
-  .bar-fill{background:var(--accent);height:100%;border-radius:5px;}
-  .bar-row .cnt{text-align:right;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
-
-  table{width:100%;border-collapse:collapse;font-size:13px;}
-  thead th{text-align:left;color:var(--text-faint);font-weight:600;font-size:11px;border-bottom:1px solid var(--border);padding:0 10px 10px;}
-  tbody td{padding:12px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
-  tbody tr:last-child td{border-bottom:none;}
-  tbody tr:hover{background:var(--surface-2);}
-  .mono{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-dim);}
-  .badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;}
-  .badge.open{background:var(--red-soft);color:var(--red);}
-  .badge.progress{background:var(--gold-soft);color:var(--gold);}
-  .badge.escalated{background:var(--accent-soft);color:var(--accent);}
-  .badge.resolved{background:var(--green-soft);color:var(--green);}
-  .flag{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
-  .flag.regular{background:var(--surface-2);color:var(--text-faint);}
-  .flag.attention{background:var(--gold-soft);color:var(--gold);}
-  .flag.flag-critical{background:#E0803322;color:#E08033;}
-  .flag.very-critical{background:var(--red);color:#fff;animation:flagPulse 1.6s ease-in-out infinite;}
-  @keyframes flagPulse{0%,100%{opacity:1;}50%{opacity:.6;}}
-  .details-cell{max-width:220px;}
-  .details-text{color:var(--text-dim);cursor:pointer;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-  .details-text.expanded{-webkit-line-clamp:unset;}
-  .empty-state{padding:40px 10px;text-align:center;color:var(--text-faint);font-size:13.5px;}
-  .table-scroll{overflow-x:auto;}
-
-  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:380px;margin:60px auto 0;}
-  .login-card p.lede{color:var(--text-dim);margin:0 0 22px;font-size:14px;line-height:1.5;}
-  .login-card .field{margin-bottom:16px;display:flex;flex-direction:column;gap:7px;}
-  .login-card label{font-size:12.5px;font-weight:600;color:var(--text-dim);}
-  .login-card input[type=text]{
+  .form-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;}
+  .form-card p.lede{color:var(--text-dim);margin:0 0 26px;font-size:14.5px;max-width:60ch;line-height:1.5;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px;}
+  .field{display:flex;flex-direction:column;gap:7px;}
+  .field.full{grid-column:1 / -1;}
+  label{font-size:12.5px;font-weight:600;color:var(--text-dim);}
+  label .req{color:var(--red);margin-left:2px;}
+  label .hint{display:block;font-weight:400;color:var(--text-faint);font-size:11.5px;margin-top:2px;}
+  input[type=text], select, textarea{
     background:var(--surface-2);border:1px solid var(--border);color:var(--text);
     padding:11px 12px;border-radius:8px;font-family:'Inter',sans-serif;font-size:14px;
-    outline:none;width:100%;
+    outline:none;transition:border-color .15s ease;width:100%;
   }
-  .login-card button.primary{
+  input[type=text]:focus, select:focus, textarea:focus{border-color:var(--accent);}
+  select:disabled{opacity:.45;cursor:not-allowed;}
+  .checkbox-box{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:14px 14px 6px;}
+  .checkbox-group-title{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.04em;color:var(--text-faint);text-transform:uppercase;margin:0 0 6px;}
+  .checkbox-group-title:not(:first-child){margin-top:12px;}
+  .checkbox-item{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--text);font-weight:400;padding:6px 2px;cursor:pointer;}
+  .checkbox-item input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex:none;}
+  textarea{resize:vertical;min-height:90px;line-height:1.5;font-family:'Inter',sans-serif;}
+  select{appearance:none;-webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23ABA495'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 14px center;padding-right:32px;
+  }
+  .submit-row{display:flex;align-items:center;gap:14px;margin-top:28px;}
+  button.primary{
     background:var(--accent);color:#1C1B18;border:none;font-family:'Inter',sans-serif;
-    font-weight:700;font-size:14.5px;padding:12px 26px;border-radius:8px;cursor:pointer;width:100%;
+    font-weight:700;font-size:14.5px;padding:12px 26px;border-radius:8px;cursor:pointer;
+    transition:filter .15s ease;
   }
+  button.primary:hover{filter:brightness(1.08);}
   .status-msg{font-size:13.5px;font-weight:600;}
+  .status-msg.ok{color:var(--green);}
   .status-msg.err{color:var(--red);}
-  #view-dashboard{display:none;}
-  .session-row{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-bottom:16px;font-size:12.5px;color:var(--text-faint);}
-  .session-row button.link{background:none;border:none;color:var(--accent);font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;padding:0;}
+  .foot-note{margin-top:16px;font-size:12px;color:var(--text-faint);}
+  @media (max-width:640px){ .grid{grid-template-columns:1fr;} }
 
-  .hub-link{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--text-faint);}
-  .hub-contacts{margin-top:6px;font-size:11.5px;color:var(--text-dim);background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;line-height:1.6;}
+  /* ---- attachments: photo / voice note ---- */
+  .attach-zone{border:1.5px dashed var(--border);border-radius:12px;padding:18px;text-align:center;transition:border-color .2s ease, background-color .2s ease;}
+  .attach-zone.dragover{border-color:var(--accent);background:var(--surface-2);}
+  .attach-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  .attach-btn{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;padding:10px 16px;border-radius:999px;cursor:pointer;transition:border-color .15s ease, transform .12s ease, color .15s ease;}
+  .attach-btn:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px);}
+  .attach-btn:active{transform:translateY(0);}
+  .attach-icon{font-size:16px;line-height:1;}
+  .attach-drop-hint{margin:12px 0 0;font-size:12px;color:var(--text-faint);}
+  .attach-list{margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;}
+  .attach-chip{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:6px 10px 6px 6px;font-size:12.5px;animation:chipIn .18s ease;}
+  .attach-chip img{width:34px;height:34px;object-fit:cover;border-radius:6px;display:block;}
+  .attach-chip .chip-audio-icon{width:34px;height:34px;border-radius:6px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;flex:none;}
+  .attach-chip .chip-name{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim);}
+  .attach-chip button.chip-remove{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:15px;line-height:1;padding:2px;}
+  .attach-chip button.chip-remove:hover{color:var(--red);}
+  @keyframes chipIn{from{opacity:0;transform:scale(.9);}to{opacity:1;transform:scale(1);}}
 
-  @media (max-width:720px){ .stat-strip{grid-template-columns:repeat(2,1fr);} }
-
-  .tab-bar{display:flex;gap:22px;margin-bottom:22px;border-bottom:1px solid var(--border);}
-  .tab-btn{background:none;border:none;color:var(--text-faint);font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;padding:0 0 12px;cursor:pointer;border-bottom:2px solid transparent;}
-  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
-  .tab-bar.sub{gap:8px;border-bottom:none;margin-bottom:20px;flex-wrap:wrap;}
-  .tab-bar.sub .tab-btn{font-size:12.5px;padding:7px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;color:var(--text-dim);}
-  .tab-bar.sub .tab-btn.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
-
-  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px;}
-  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
-  .stat-card .num{font-family:'Fraunces',serif;font-size:25px;font-weight:500;line-height:1.1;}
-  .stat-card .lbl{font-size:10.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-top:6px;}
-
-  .perf-section-title{font-family:'Fraunces',serif;font-size:17px;font-weight:500;margin:0 0 12px;}
-  .perf-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:26px;}
-  table.perf-table{width:100%;border-collapse:collapse;}
-  .perf-table th,.perf-table td{padding:11px 16px;text-align:left;font-size:13px;border-bottom:1px solid var(--border);}
-  .perf-table th{color:var(--text-faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;background:var(--surface-2);font-weight:600;}
-  .perf-table tbody tr:last-child td{border-bottom:none;}
-  .perf-table td.num-cell{font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
-  .rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--surface-2);font-size:11px;font-weight:700;color:var(--text-dim);}
-  .rank-badge.r1{background:var(--gold-soft);color:var(--gold);}
-  .rank-badge.r2{background:#C0C0C022;color:#C6C6C6;}
-  .rank-badge.r3{background:#CD7F3222;color:#CD9A63;}
-  .rate-pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;}
-  .rate-pill.hi{background:var(--green-soft);color:var(--green);}
-  .rate-pill.mid{background:var(--gold-soft);color:var(--gold);}
-  .rate-pill.lo{background:var(--red-soft);color:var(--red);}
-  .report-toggle{display:flex;gap:6px;}
-  .report-toggle button{background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);font-family:'Inter',sans-serif;font-weight:700;font-size:11.5px;padding:6px 14px;border-radius:999px;cursor:pointer;}
-  .report-toggle button.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
-  .chg{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;display:inline-block;}
-  .chg.up{background:var(--red-soft);color:var(--red);}
-  .chg.down{background:var(--green-soft);color:var(--green);}
-  .chg.flat{background:var(--surface-2);color:var(--text-faint);}
-  .perf-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
-  .perf-toolbar select{width:auto;min-width:190px;}
-
-  .csel{position:relative;display:inline-flex;}
-  .csel select{display:none;}
-  .csel-trigger{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;
-    padding:8px 10px;font-size:13px;font-family:'Inter',sans-serif;font-weight:500;
-    background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
-    color:var(--text);cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s;
-    white-space:nowrap;
-  }
-  .csel-trigger:hover{border-color:var(--accent);background:var(--surface);}
-  .csel-trigger.open{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:var(--surface);}
-  .csel-trigger::after{
-    content:'';width:7px;height:7px;flex-shrink:0;margin-top:-3px;
-    border-right:2px solid var(--text-faint);border-bottom:2px solid var(--text-faint);
-    transform:rotate(45deg);transition:transform .18s;
-  }
-  .csel-trigger.open::after{transform:rotate(-135deg);margin-top:3px;}
-  .csel-menu{
-    position:absolute;top:calc(100% + 6px);left:0;z-index:50;min-width:100%;
-    background:var(--surface);border:1px solid var(--border);border-radius:10px;
-    box-shadow:0 12px 28px rgba(0,0,0,.2);padding:5px;max-height:260px;overflow-y:auto;
-    opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .15s,transform .15s;
-  }
-  .csel-menu.open{opacity:1;transform:translateY(0);pointer-events:auto;}
-  .csel-option{padding:8px 10px;font-size:13px;font-family:'Inter',sans-serif;border-radius:6px;cursor:pointer;color:var(--text-dim);}
-  .csel-option:hover{background:var(--surface-2);color:var(--text);}
-  .csel-option.selected{background:var(--accent-soft);color:var(--accent);font-weight:600;}
-  .perf-toolbar .csel{min-width:190px;}
-  .perf-toolbar .csel-trigger{width:100%;}
-
-  /* From Uiverse.io by rishichawda */
+  /* ---- light / dark toggle (from Uiverse.io by rishichawda) ---- */
   #theme-toggle-button{font-size:7px;position:relative;display:inline-block;width:7em;cursor:pointer;flex-shrink:0;}
   #toggle{opacity:0;width:0;height:0;}
   #container,#patches,#stars,#button,#sun,#moon,#cloud{
@@ -214,76 +111,23 @@
   #stars{opacity:0;}
   #toggle:checked + svg #stars{opacity:1;}
 
-  .modal-overlay{
-    position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;
-    display:flex;align-items:center;justify-content:center;padding:20px;
-  }
-  .modal-box{
-    background:var(--surface);border:1px solid var(--border);border-radius:14px;
-    padding:24px;max-width:360px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.3);
-  }
-  .modal-box h3{font-family:'Fraunces',serif;font-weight:500;margin:0 0 8px;font-size:19px;}
-  .modal-box p{margin:0 0 18px;color:var(--text-dim);font-size:14px;}
-  .modal-actions{display:flex;gap:10px;}
-  .modal-actions button{flex:1;}
-
-  /* ---- Issue detail / history popup + Action popup ---- */
-  .modal-box.wide{max-width:680px;max-height:88vh;overflow-y:auto;}
-  .modal-box button.primary{background:var(--accent);color:#1C1B18;border:none;font-family:'Inter',sans-serif;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:8px;cursor:pointer;}
-  .modal-box button.link{background:none;border:none;color:var(--accent);font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;padding:0;}
-  .modal-box textarea{width:100%;min-height:96px;resize:vertical;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:11px 12px;border-radius:8px;font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;outline:none;}
-  .modal-box textarea:focus{border-color:var(--accent);}
-  tbody tr.clickable{cursor:pointer;}
-  .dt-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
-  .dt-head h3{margin:0 0 6px;}
-  .dt-x{background:none;border:none;color:var(--text-faint);font-size:22px;line-height:1;cursor:pointer;padding:0 2px;}
-  .dt-x:hover{color:var(--text);}
-  .dt-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
-  .dt-remark{border:1px solid var(--border);border-left:3px solid var(--green);background:var(--surface-2);border-radius:10px;padding:12px 14px;margin-bottom:14px;}
-  .dt-remark.none{border-left-color:var(--border);}
-  .dt-label{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);font-weight:700;margin-bottom:4px;}
-  .dt-text{font-size:14px;line-height:1.55;color:var(--text);white-space:pre-wrap;word-break:break-word;margin:0;}
-  .dt-sub{font-size:11.5px;color:var(--text-faint);margin-top:6px;}
-  .dt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 16px;margin:14px 0;}
-  .dt-grid dt{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);}
-  .dt-grid dd{margin:2px 0 0;font-size:13px;color:var(--text);word-break:break-word;}
-  .dt-section{margin-top:16px;}
-  .tl{position:relative;margin:8px 0 0;padding-left:18px;border-left:2px solid var(--border);}
-  .tl-item{position:relative;padding:0 0 14px 10px;}
-  .tl-item:last-child{padding-bottom:0;}
-  .tl-item::before{content:'';position:absolute;left:-25px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--text-faint);border:2px solid var(--surface);}
-  .tl-item.t-logged::before{background:var(--accent);}
-  .tl-item.t-escalated::before{background:var(--gold);}
-  .tl-item.t-ops_update::before{background:#5B9BD5;}
-  .tl-item.t-resolved::before,.tl-item.t-closed::before{background:var(--green);}
-  .tl-item.t-reprocessed::before{background:var(--red);}
-  .tl-title{font-size:13.5px;font-weight:600;color:var(--text);}
-  .tl-when{font-size:11.5px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;margin-top:1px;}
-  .tl-body{font-size:13px;color:var(--text-dim);margin-top:4px;white-space:pre-wrap;word-break:break-word;}
-  .dt-foot{display:flex;gap:10px;margin-top:18px;}
-  .dt-foot button{flex:1;}
-  .act-choice{display:block;width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;color:var(--text);font-family:'Inter',sans-serif;}
-  .act-choice:hover{border-color:var(--accent);}
-  .act-choice b{display:block;font-size:14px;margin-bottom:3px;}
-  .act-choice span{font-size:12.5px;color:var(--text-dim);}
-  .act-choice.reprocess b{color:var(--accent);}
-
-  .lightbox-overlay{
-    position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:110;
-    display:flex;align-items:center;justify-content:center;padding:30px;
-  }
-  .lightbox-overlay img{max-width:100%;max-height:85vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
-  .lightbox-close{position:absolute;top:18px;right:22px;background:none;border:none;color:#fff;font-size:28px;line-height:1;cursor:pointer;opacity:.8;}
-  .lightbox-close:hover{opacity:1;}
-  .attach-broken{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--surface-2,#eee);border:1px dashed var(--border,#ccc);border-radius:6px;font-size:11px;}
+  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:380px;margin:40px auto 0;}
+  .login-card p.lede{color:var(--text-dim);margin:0 0 22px;font-size:14px;line-height:1.5;}
+  .login-card .field{margin-bottom:16px;}
+  .login-card button.primary{width:100%;}
+  #view-app{display:none;}
+  .session-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;font-size:12.5px;color:var(--text-faint);}
+  .session-row button.link{background:none;border:none;color:var(--accent);font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;cursor:pointer;padding:0;}
 </style>
+<link rel="stylesheet" href="parcel-journey-ui.css">
 </head>
 <body>
+
 <div class="wrap">
   <header class="top">
     <div>
       <span class="eyebrow">CARRYBEE EXPRESS</span>
-      <h1>Escalation Dashboard</h1>
+      <h1 id="pageTitle">Log an Issue</h1>
     </div>
     <label id="theme-toggle-button">
       <input type="checkbox" id="toggle">
@@ -334,70 +178,10 @@
     </label>
   </header>
 
-  <div id="detailOverlay" class="modal-overlay" style="display:none;">
-    <div class="modal-box wide" role="dialog" aria-modal="true" aria-labelledby="dtTitle">
-      <div class="dt-head">
-        <div>
-          <h3 id="dtTitle">Issue</h3>
-          <div class="dt-badges" id="dtBadges"></div>
-        </div>
-        <button class="dt-x" id="dtClose" aria-label="Close">✕</button>
-      </div>
-      <div class="dt-remark" id="dtRemark"></div>
-      <div class="dt-label">Details</div>
-      <p class="dt-text" id="dtDetails"></p>
-      <dl class="dt-grid" id="dtGrid"></dl>
-      <div class="dt-section">
-        <div class="dt-label">History</div>
-        <div id="dtHistory"></div>
-      </div>
-      <div class="dt-foot" id="dtFoot"></div>
-    </div>
-  </div>
-
-  <div id="closeModalOverlay" class="modal-overlay" style="display:none;">
-    <div class="modal-box">
-      <h3>Close this issue?</h3>
-      <p>Did you confirm the update with the merchant?</p>
-      <div class="modal-actions">
-        <button class="ghost" id="closeModalNo">No</button>
-        <button class="primary" id="closeModalYes">Yes</button>
-      </div>
-      <button class="link" id="closeModalCancel" style="margin-top:10px;">Cancel</button>
-      <div style="margin-top:10px;"><span class="status-msg" id="closeModalMsg"></span></div>
-    </div>
-  </div>
-
-  <div id="actionOverlay" class="modal-overlay" style="display:none;">
-    <div class="modal-box">
-      <h3>What do you want to do?</h3>
-      <p id="actionSub">Pick one for this issue.</p>
-      <button class="act-choice" id="actionClose" type="button"><b>Close issue</b><span>The hub's answer solved it. You will confirm the merchant was informed.</span></button>
-      <button class="act-choice reprocess" id="actionReprocess" type="button"><b>Re-process</b><span>Not solved. It goes back to the hub as a new Open issue and the escalation clock starts again.</span></button>
-      <button class="link" id="actionCancel" type="button" style="margin-top:4px;">Cancel</button>
-    </div>
-  </div>
-
-  <div id="reprocessOverlay" class="modal-overlay" style="display:none;">
-    <div class="modal-box">
-      <h3>Re-process this issue?</h3>
-      <p>It goes back to <b id="rpHub">the hub</b> as Open. Tell them what is still wrong.</p>
-      <textarea id="rpReason" maxlength="500" placeholder="e.g. Merchant says the parcel was not picked up"></textarea>
-      <div class="modal-actions" style="margin-top:14px;">
-        <button class="ghost" id="rpBack" type="button">Back</button>
-        <button class="primary" id="rpConfirm" type="button">Send back to hub</button>
-      </div>
-      <div style="margin-top:10px;"><span class="status-msg" id="rpMsg"></span></div>
-    </div>
-  </div>
-
-  <div id="lightboxOverlay" class="lightbox-overlay" style="display:none;">
-    <button class="lightbox-close" id="lightboxClose">✕</button>
-    <img id="lightboxImg" src="" alt="Attachment">
-  </div>
 
   <div id="view-login" class="login-card">
-    <p class="lede">Sign in with your Carrybee login to view the dashboard.</p>
+    <p class="lede">Sign in with your Carrybee login to log an issue.</p>
+
     <form id="loginForm">
       <div class="field">
         <label>Email</label>
@@ -412,88 +196,146 @@
     </form>
   </div>
 
-  <div id="view-dashboard">
+  <div id="view-app">
   <div class="session-row">
     <span id="sessionLabel"></span>
     <button class="link" id="btnLogout">Sign out</button>
   </div>
-
-  <div class="tab-bar" id="mainTabs">
-    <button class="tab-btn active" data-tab="issues" id="tabBtnIssues">Issues</button>
-    <button class="tab-btn" data-tab="pjissues" id="tabBtnPJIssues">Parcel Journey Issue</button>
-    <button class="tab-btn" data-tab="flagged" id="tabBtnFlagged">Flagged</button>
-    <button class="tab-btn" data-tab="performance" id="tabBtnPerformance">Performance</button>
+  <div class="app-tabs" role="tablist">
+    <button type="button" class="app-tab active" id="tabForm" role="tab" data-tab="form">Log an Issue</button>
+    <button type="button" class="app-tab" id="tabParcel" role="tab" data-tab="parcel">Parcel Journey</button>
   </div>
+  <div id="panel-parcel" hidden><div id="pj-root"></div></div>
+  <div id="panel-form">
+  <div class="form-card">
+    <p class="lede">Log an operational issue for a consignment or merchant. Submissions here feed the escalation dashboard directly — no separate sync step.</p>
+    <form id="issueForm">
+      <div class="grid">
 
-  <div id="panel-issues">
-  <div class="stat-strip" id="statStrip"></div>
+        <div class="field full">
+          <label>Consignment ID / Merchant Name <span class="req">*</span></label>
+          <input type="text" id="f-consignment" required placeholder="e.g. CB-4471290 or Sundora">
+        </div>
 
-  <div class="panel">
-    <h2>Filter</h2>
-    <div class="filter-row">
-      <select id="ff-channel"><option value="">All channels</option></select>
-      <select id="ff-zone"><option value="">All zones</option></select>
-      <select id="ff-category"><option value="">All categories</option></select>
-      <select id="ff-status"><option value="">All statuses</option></select>
-      <input type="text" id="ff-search" placeholder="Search consignment / merchant / hub">
-      <div class="spacer"></div>
-      <button class="ghost" id="btnRefresh">Refresh</button>
-      <button class="ghost" id="btnExport">Export CSV</button>
-    </div>
-  </div>
+        <div class="field">
+          <label>Channel <span class="req">*</span></label>
+          <select id="f-channel" required>
+            <option value="" disabled selected>Choose</option>
+            <option>KAM</option>
+            <option>Contact center</option>
+            <option>Social Media</option>
+            <option>Inbound</option>
+            <option>OPS</option>
+            <option>HUB</option>
+            <option>Merchant panel</option>
+          </select>
+        </div>
 
-  <div class="panel">
-    <h2>Issues by category</h2>
-    <div id="categoryBars"></div>
-  </div>
+        <div class="field" id="field-media" style="display:none;">
+          <label>Media <span class="req">*</span></label>
+          <select id="f-media">
+            <option value="" disabled selected>Choose</option>
+            <option>Customer</option>
+            <option>Merchant</option>
+          </select>
+        </div>
 
-  <div class="panel">
-    <h2 id="issueLogTitle">Escalation log</h2>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Logged</th><th>Consignment / Merchant</th><th>Channel</th><th>Zone</th>
-            <th>Hub</th><th>Category</th><th>Subcategory</th><th>Status</th><th>Flag</th><th>Logged by</th><th>Remarks</th><th>Details</th><th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="issueTableBody"></tbody>
-      </table>
-    </div>
-    <div id="emptyState" class="empty-state" style="display:none;">No issues match this filter yet.</div>
-  </div>
-  </div>
+        <div class="field full" id="field-social-source" style="display:none;">
+          <label>Social Media Source <span class="req">*</span></label>
+          <div class="checkbox-box">
+            <div class="checkbox-group-title">Groups</div>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee Agent Community [Official]"> CarryBee Agent Community [Official]</label>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee - Merchant Support [Official]"> CarryBee - Merchant Support [Official]</label>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee Community [Official]"> CarryBee Community [Official]</label>
+            <div class="checkbox-group-title">Unofficial Groups</div>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="Unofficial Group"> Unofficial Group</label>
+            <div class="checkbox-group-title">Pages</div>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee"> CarryBee</label>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="CarryBee Careers"> CarryBee Careers</label>
+            <div class="checkbox-group-title">Other</div>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="Inbox"> Inbox</label>
+            <label class="checkbox-item"><input type="checkbox" class="social-source-opt" value="Comments"> Comments</label>
+          </div>
+        </div>
 
-  <div id="panel-flagged" style="display:none;">
-    <div class="panel">
-      <h2>Flagged issues</h2>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Logged</th><th>Consignment / Merchant</th><th>Channel</th><th>Zone</th>
-              <th>Hub</th><th>Category</th><th>Subcategory</th><th>Status</th><th>Flag</th><th>Logged by</th><th>Remarks</th><th>Details</th><th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="flaggedTableBody"></tbody>
-        </table>
+        <div class="field">
+          <label>Zone <span class="req">*</span></label>
+          <select id="f-zone" required>
+            <option value="" disabled selected>Choose</option>
+            <option>ISD</option>
+            <option>OSD</option>
+            <option>SUB</option>
+            <option>Central Sort</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Hub Name <span class="req">*</span></label>
+          <select id="f-hub" required disabled>
+            <option value="" selected>Choose zone first</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Issue Status <span class="req">*</span></label>
+          <select id="f-status" required>
+            <option value="" disabled selected>Choose</option>
+            <option>Open</option>
+            <option>In Progress</option>
+            <option>Resolved</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Issue Category <span class="req">*</span></label>
+          <select id="f-category" required>
+            <option value="" disabled selected>Choose</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Issue Subcategory <span class="req">*</span></label>
+          <select id="f-subcategory" required disabled>
+            <option value="" selected>Choose category first</option>
+          </select>
+        </div>
+
+        <div class="field full">
+          <label>Issue Details <span class="req">*</span></label>
+          <textarea id="f-details" required placeholder="What happened? Include any relevant context the assignee will need."></textarea>
+        </div>
+
+        <div class="field full">
+          <label>Attachments <span class="hint">Photo or voice note, optional</span></label>
+          <div class="attach-zone" id="attachZone">
+            <input type="file" id="f-attach-photo" accept="image/*" capture="environment" multiple style="display:none;">
+            <input type="file" id="f-attach-audio" accept="audio/*" capture multiple style="display:none;">
+            <div class="attach-actions">
+              <button type="button" class="attach-btn" id="btnAddPhoto"><span class="attach-icon">📷</span>Add photo</button>
+              <button type="button" class="attach-btn" id="btnAddAudio"><span class="attach-icon">🎙️</span>Add voice note</button>
+            </div>
+            <p class="attach-drop-hint">or drag &amp; drop files here</p>
+          </div>
+          <div id="attachList" class="attach-list"></div>
+        </div>
       </div>
-      <div id="flaggedEmptyState" class="empty-state" style="display:none;">Nothing flagged right now — everything's on time.</div>
-    </div>
-  </div>
 
-  <div id="panel-performance" style="display:none;">
-    <div class="tab-bar sub" id="perfSubTabs">
-      <button class="tab-btn active" data-view="kam">By KAM</button>
-      <button class="tab-btn" data-view="hub">Hub Performance</button>
-    </div>
-    <div id="perfContent"></div>
+      <div class="submit-row">
+        <button type="submit" class="primary">Log issue</button>
+        <span id="formMsg" class="status-msg"></span>
+      </div>
+    </form>
+    <p class="foot-note">Logged issues appear on the escalation dashboard artifact — open that separately to review, filter, and export.</p>
+  </div>
   </div>
   </div>
 </div>
 
 <script>
-  const API_BASE = 'https://central-issues-escalation-form.onrender.com';
+  // Opened from a local `npm start`, talk to that local server instead of the live one.
+  const API_BASE = ['localhost', '127.0.0.1'].includes(location.hostname)
+    ? location.origin
+    : 'https://central-issues-escalation-form.onrender.com';
 
   // ---------- Light / dark theme ----------
   (function initTheme(){
@@ -513,148 +355,224 @@
     });
   })();
 
-  let authToken = localStorage.getItem('cbe_token') || null;
-  let authEmail = localStorage.getItem('cbe_email') || null;
-  let authName = localStorage.getItem('cbe_name') || null;
+  let authToken = null;
+  let authEmail = null;
+
+  const HUB_MAP = {"ISD": ["Uttara", "Diabari", "Khilkhet", "Mohakhali", "Badda-Nadda", "Pallabi", "60 Feet", "Mohammadpur", "Kolabagan", "Lalbagh", "Kamrangirchar", "Badda", "Jatrabari", "Khilgaon", "Dhonia", "Demra"], "SUB": ["Gazipur-Joydebpur", "Gazipur-Kapasiya", "Gazipur-Mawna", "Gazipur-Mouchak", "Gazipur-Boardbazar", "Gazipur-Kaliganj", "Savar", "Savar-Baipail", "Savar-Dhamrai", "Narayanganj", "Sonargaon", "Narayanganj-Bandar", "Narayanganj-Araihazar", "Rupganj", "Bhulta-Gawsia", "Dohar-Nawabganj", "Keraniganj-Ati Bazar", "Siddhirganj", "Keraniganj"], "OSD": ["Jhenaidah-Sadar", "Jhenaidah-Maheshpur", "Satkhira-Sadar", "Meherpur-Sadar", "Kushtia-Sadar", "Kushtia-Daulatpur", "Kushtia-Bheramara", "Jessore-Sadar", "Jessore-Sharsha", "Jessore-Manirampur", "Khulna-Sadar", "Jessore-Abhaynagar", "Bagerhat-Sadar", "Khulna-Paikgacha", "Khulna-Dumuria", "Satkhira-Kaliganj", "Bagerhat-Mongla", "Bagerhat-Morrelganj", "Chuadanga-Sadar", "Magura-Sadar", "Narail-Sadar", "Barishal-Sadar", "Barisal-Gournadi", "Barisal-Bakerganj", "Bhola-Charfassion", "Bhola-Sadar", "Pirojpur-Sadar", "Pirojpur-Mathbaria", "Barisal-Muladi", "Jhalokathi-Sadar", "Barguna-Sadar", "Patuakhali-Sadar", "Patuakhali-Galachipa", "Patuakhali-Kalapara", "Shariatpur-Sadar", "Gopalganj-Sadar", "Madaripur-Shibchar", "Madaripur-Sadar", "Faridpur-Sadar", "Gopalganj-Muksudpur", "Shariatpur-Damudya", "Munshiganj-Sirajdikhan", "Tangail-Sakhipur", "Manikganj-Sadar", "Manikganj-Singair", "Munshiganj-Sreenagar", "Tangail-Mirzapur", "Munshiganj-Sadar", "Tangail-Sadar", "Tangail-Ghatail", "Faridpur-Bhanga", "Rajbari-Sadar", "Faridpur-Boalmari", "Sylhet-Golapganj", "Sylhet-Beanibazar", "Sylhet-Sadar", "Sylhet-Jaintiapur", "Sylhet-Kanaighat", "Sylhet-Gowainghat", "Sylhet-Bishwanath", "Sylhet-Osmaninagar", "Sylhet-Fenchuganj", "Sylhet-Dakshin Surma", "Habiganj-Sadar", "Habiganj-Chunarughat", "Habiganj-Madhabpur", "Habiganj-Nabiganj", "Moulvibazar-Barlekha", "Moulvibazar-Kulaura", "Maulvibazar-Sadar", "Moulvibazar-Rajnagar", "Moulvibazar-Sreemangal", "Moulvibazar-Kamalganj", "Sunamganj-Sadar", "Sunamganj-Chhatak", "Sunamganj-Jagannathpur", "Sunamganj-Derai", "Netrokona-Sadar", "Netrakona-Mohonganj", "Jamalpur-Dewanganj", "Sherpur-Sadar", "Mymensingh-Phulpur", "Mymensingh-Bhaluka", "Mymensingh-Gaffargaon", "Mymensingh-Trishal", "Mymensingh-Sadar", "Jamalpur-Sadar", "Joypurhat-Sadar", "Bogra-Sadar", "Bogra-Sherpur", "Bogra-Dhupchanchia", "Sirajganj-Sadar", "Naogaon-Sadar", "Pabna-Bhangura", "Natore-Sadar", "Pabna-Ishwardi", "Pabna-Sadar", "Sirajganj-Shahjadpur", "Chapainawabganj-Shibganj", "Chapainawabganj-Sadar", "Sirajganj-Ullapara", "Naogaon-Patnitala", "Rajshahi-Puthia", "Rajshahi-Sadar", "Gaibandha-Sadar", "Rangpur-Sadar", "Nilphamari-Sadar", "Kurigram-Sadar", "Thakurgaon-Sadar", "Lalmonirhat-Sadar", "Rangpur-Mithapukur", "Nilphamari-Saidpur", "Gaibandha-Gobindaganj", "Panchagarh-Sadar", "Dinajpur-Nawabganj", "Nilphamari-Joldhaka", "Dinajpur-Birganj", "Dinajpur-Sadar", "Narsingdi-Sadar", "Narsingdi-Roypura", "Narsingdi-Shibpur", "Kishoreganj-Mithamain", "Kishoreganj-Pakundia", "Kishoreganj-Sadar", "Kishoreganj-Bhairab", "B.Baria-Sadar", "B.Baria-Kasba", "B.Baria-Nabinagar", "B.Baria-Bancharampur", "B.Baria-Nasirnagar", "B.Baria-Akhaura", "Comilla-Laksam", "Comilla-Sadar", "Comilla-Muradnagar", "Comilla-Chandina", "Comilla-Chauddagram", "Comilla-Daudkandi", "Comilla-Burichang", "Comilla-Nangalkot", "Comilla-Brahmanpara", "Comilla-Barura", "Comilla-Debidwar", "Chandpur-Sadar", "Chandpur-Faridganj", "Chandpur-Hajiganj", "Chandpur-Kachua", "Chandpur-Shahrasti", "Chandpur-Matlab Dakshin", "Noakhali-Senbagh", "Noakhali-Companiganj", "Noakhali-Sadar", "Noakhali-Chatkhil", "Noakhali-Subarnachar", "Noakhali-Begumganj", "Lakshmipur-Kamalnagar", "Lakshmipur-Ramganj", "Lakshmipur-Raipur", "Lakshmipur-Sadar", "Cox's Bazar-Chakaria", "Cox's Bazar-Maheshkhali", "Cox's Bazar-Ramu", "Cox's Bazar-Sadar", "Cox's Bazar-Teknaf", "Cox's Bazar-Ukhia", "CTG-Halishahar", "CTG-Nasirabad", "CTG-Patenga", "CTG-Patiya", "CTG-Fatikchari", "CTG-Raozan", "CTG-Satkania", "CTG-Sitakunda", "Feni-Chhagalnaiya", "Feni-Daganbhuya", "Feni-Sadar", "Feni-Sonagazi", "Khagrachari-Sadar", "Rangamati-Sadar", "Bandarban-Sadar", "CTG-Anwara", "CTG-Banshkhali", "CTG-Rangunia", "CTG-Hathazari", "CTG-Mirsarai"], "Central Sort": ["Central Sort"]};
 
   const CATEGORY_MAP = {
-    "Delivery Delay": [],"Payment Issue": [],"Pickup": [],"Return Delay": [],"Return Exchange": [],
-    "Reverse Pickup": [],"Charge Extra/Wrong COD": [],"Damage": [],"No Entry/Cancelled": [],
-    "Unprofessionalism": [],"Wrong Routing": [],"Wrong Tag/Parcel Swapped": [],
-    "Breach of CLOSEBOX": [],"Urgent Delivery": []
+    "Delivery Delay": ["Hub processing delay","Rider unavailable","Address / location issue","Weather or force majeure","Traffic / distance issue","Customer unreachable","Vehicle breakdown"],
+    "Payment Issue": ["COD not remitted","Payment delay","Wrong amount collected","Payment not updated in system","Bank / transfer issue"],
+    "Pickup": ["Pickup not done","Pickup delay","Rider no-show","Wrong pickup address","Pickup rescheduled without notice"],
+    "Return Delay": ["Return not initiated","Return stuck at hub","Return rider not assigned","Delayed return to merchant"],
+    "Return Exchange": ["Exchange not processed","Wrong item returned","Exchange delay","Customer refused exchange"],
+    "Reverse Pickup": ["Reverse pickup not scheduled","Reverse pickup delay","Rider refused reverse pickup","Customer unavailable for reverse pickup"],
+    "Charge Extra/Wrong COD": ["Extra charge without notice","Wrong COD amount entered","Weight discrepancy charge","Unauthorized charge"],
+    "Damage": ["Product damaged in transit","Packaging damaged","Damage at hub","Damage during handling"],
+    "No Entry/Cancelled": ["Order cancelled by rider","No entry in system","Cancelled without reason","Duplicate entry"],
+    "Unprofessionalism": ["Rider misbehavior","Hub staff misbehavior","Rude communication","Inappropriate conduct"],
+    "Wrong Routing": ["Sent to wrong hub","Wrong zone assignment","Misrouted parcel","Routing system error"],
+    "Wrong Tag/Parcel Swapped": ["Tag mismatch","Parcel swapped with another order","Barcode / label error","Wrong merchant tag"],
+    "Breach of CLOSEBOX": ["Seal broken before delivery","Unauthorized box opening","Tampering reported by customer","Missing items after breach"],
+    "Urgent Delivery": ["Same-day delivery request","VIP / priority merchant request","Time-sensitive product","Festival / peak season request"]
   };
 
   const $ = (id) => document.getElementById(id);
-  // 'escalated' kept only so any pre-existing issue still carrying that
-  // legacy status renders with a sensible badge — Escalated is no longer a
-  // status a KAM/Ops can set going forward (see the filter list below).
-  const statusClass = (s) => s === 'Open' ? 'open' : s === 'In Progress' ? 'progress' : s === 'Escalated' ? 'escalated' : 'resolved';
-  const FLAG_CLASS = { 'Regular': 'regular', 'Need attention': 'attention', 'Critical': 'flag-critical', 'Very critical': 'very-critical', 'Resolved': null };
-  const FLAG_ICON = { 'Regular': '', 'Need attention': '🚩', 'Critical': '🚩', 'Very critical': '🚩' };
-  function renderFlag(i){
-    const cls = FLAG_CLASS[i.response_status];
-    if(!cls) return '—';
-    return `<span class="flag ${cls}">${FLAG_ICON[i.response_status]||''} ${escapeHtml(i.response_status)}</span>`;
+
+  // ---------- attachments (photo / voice note) ----------
+  // Kept as base64 data URLs client-side and sent inline with the issue
+  // payload — no separate upload step/endpoint. Photos are downsized/
+  // re-compressed on a <canvas> before encoding: a raw phone photo can be
+  // several MB, and large base64 payloads have proven unreliable end-to-end
+  // (some silently failed to round-trip through the DB). Capping the
+  // compressed output at ~1.5MB keeps every photo comfortably small.
+  // Voice notes can't be compressed client-side this simply, so they get a
+  // smaller raw cap instead.
+  const MAX_PHOTO_RAW_BYTES = 20 * 1024 * 1024; // before compression
+  const MAX_PHOTO_OUTPUT_BYTES = 1.5 * 1024 * 1024; // after compression
+  const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
+  let pendingAttachments = []; // { type, filename, mimeType, dataUrl }
+
+  function renderAttachList(){
+    const box = $('attachList');
+    box.innerHTML = '';
+    pendingAttachments.forEach((a, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'attach-chip';
+      const preview = a.type === 'photo'
+        ? `<img src="${a.dataUrl}" alt="">`
+        : `<span class="chip-audio-icon">🎙️</span>`;
+      chip.innerHTML = `${preview}<span class="chip-name">${a.filename || a.type}</span>`;
+      const rm = document.createElement('button');
+      rm.type = 'button'; rm.textContent = '✕'; rm.className = 'chip-remove';
+      rm.title = 'Remove';
+      rm.addEventListener('click', () => { pendingAttachments.splice(idx, 1); renderAttachList(); });
+      chip.appendChild(rm);
+      box.appendChild(chip);
+    });
   }
 
-  const ffCategory = $('ff-category');
-  Object.keys(CATEGORY_MAP).forEach(cat=>{
-    const o=document.createElement('option'); o.value=cat; o.textContent=cat;
-    ffCategory.appendChild(o);
+  function fileToDataUrl(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Downscales + re-encodes an image via canvas, trying progressively lower
+  // JPEG quality until the output is under MAX_PHOTO_OUTPUT_BYTES (or we run
+  // out of quality steps — 0.4 is still perfectly usable for a "what's
+  // damaged" reference photo).
+  function compressImage(file, maxDim){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+          else { width = Math.round(width * (maxDim / height)); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        let quality = 0.75;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+        while (dataUrl.length > MAX_PHOTO_OUTPUT_BYTES * 1.37 && quality > 0.35) {
+          quality -= 0.15;
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve(dataUrl);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not decode image')); };
+      img.src = url;
+    });
+  }
+
+  async function handleAttachmentFiles(fileList, type){
+    const msg = $('formMsg');
+    for (const file of Array.from(fileList)) {
+      const cap = type === 'photo' ? MAX_PHOTO_RAW_BYTES : MAX_AUDIO_BYTES;
+      if (file.size > cap) {
+        msg.textContent = `${file.name} is too large (max ${Math.round(cap / (1024 * 1024))}MB).`; msg.className = 'status-msg err';
+        continue;
+      }
+      try {
+        const dataUrl = type === 'photo' ? await compressImage(file, 1280) : await fileToDataUrl(file);
+        pendingAttachments.push({ type, filename: file.name, mimeType: type === 'photo' ? 'image/jpeg' : file.type, dataUrl });
+      } catch {
+        msg.textContent = `Could not read ${file.name}.`; msg.className = 'status-msg err';
+      }
+    }
+    renderAttachList();
+  }
+
+  $('btnAddPhoto').addEventListener('click', () => $('f-attach-photo').click());
+  $('btnAddAudio').addEventListener('click', () => $('f-attach-audio').click());
+  $('f-attach-photo').addEventListener('change', (e) => { handleAttachmentFiles(e.target.files, 'photo'); e.target.value = ''; });
+  $('f-attach-audio').addEventListener('change', (e) => { handleAttachmentFiles(e.target.files, 'audio'); e.target.value = ''; });
+
+  // Drag & drop straight onto the attach zone — classified by MIME type,
+  // photo vs audio, anything else is quietly skipped.
+  const attachZone = $('attachZone');
+  ['dragenter', 'dragover'].forEach(evt => attachZone.addEventListener(evt, (e) => {
+    e.preventDefault(); attachZone.classList.add('dragover');
+  }));
+  ['dragleave', 'drop'].forEach(evt => attachZone.addEventListener(evt, (e) => {
+    e.preventDefault(); attachZone.classList.remove('dragover');
+  }));
+  attachZone.addEventListener('drop', (e) => {
+    const files = Array.from(e.dataTransfer.files || []);
+    const photos = files.filter(f => f.type.startsWith('image/'));
+    const audios = files.filter(f => f.type.startsWith('audio/'));
+    if (photos.length) handleAttachmentFiles(photos, 'photo');
+    if (audios.length) handleAttachmentFiles(audios, 'audio');
   });
-  ['KAM','Contact center','FB','OPS','HUB','Merchant panel'].forEach(c=>{
-    const o=document.createElement('option'); o.value=c; o.textContent=c;
-    $('ff-channel').appendChild(o);
+
+  const MEDIA_CHANNELS = ['Social Media', 'Inbound'];
+  const channelSelect = $('f-channel');
+  const mediaField = $('field-media');
+  const mediaSelect = $('f-media');
+  const socialSourceField = $('field-social-source');
+  const socialSourceBoxes = document.querySelectorAll('.social-source-opt');
+  function resetSocialSource(){
+    socialSourceField.style.display = 'none';
+    socialSourceBoxes.forEach(cb => { cb.checked = false; });
+  }
+  function getSocialSource(){
+    return Array.from(socialSourceBoxes).filter(cb => cb.checked).map(cb => cb.value);
+  }
+  channelSelect.addEventListener('change', ()=>{
+    if(MEDIA_CHANNELS.includes(channelSelect.value)){
+      mediaField.style.display = '';
+      mediaSelect.required = true;
+    } else {
+      mediaField.style.display = 'none';
+      mediaSelect.required = false;
+      mediaSelect.value = '';
+    }
+    if(channelSelect.value === 'Social Media'){
+      socialSourceField.style.display = '';
+    } else {
+      resetSocialSource();
+    }
   });
-  ['ISD','OSD','SUB','Central Sort'].forEach(z=>{
-    const o=document.createElement('option'); o.value=z; o.textContent=z;
-    $('ff-zone').appendChild(o);
-  });
-  ['Open','In Progress','Resolved'].forEach(s=>{
-    const o=document.createElement('option'); o.value=s; o.textContent=s;
-    $('ff-status').appendChild(o);
-  });
 
-  // ---------- Custom dropdown (replaces native <select> popup styling) ----------
-  document.addEventListener('click', ()=>{
-    document.querySelectorAll('.csel-menu.open').forEach(m=> m.classList.remove('open'));
-    document.querySelectorAll('.csel-trigger.open').forEach(t=> t.classList.remove('open'));
-  });
-
-  function enhanceSelect(select){
-    if(!select || select.dataset.enhanced) return;
-    select.dataset.enhanced = '1';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'csel';
-    select.parentNode.insertBefore(wrap, select);
-    wrap.appendChild(select);
-
-    const trigger = document.createElement('button');
-    trigger.type = 'button';
-    trigger.className = 'csel-trigger';
-
-    const menu = document.createElement('div');
-    menu.className = 'csel-menu';
-
-    wrap.appendChild(trigger);
-    wrap.appendChild(menu);
-
-    function closeMenu(){ menu.classList.remove('open'); trigger.classList.remove('open'); }
-
-    function buildMenu(){
-      menu.innerHTML = '';
-      Array.from(select.options).forEach((opt, idx)=>{
-        const item = document.createElement('div');
-        item.className = 'csel-option' + (idx === select.selectedIndex ? ' selected' : '');
-        item.textContent = opt.textContent;
-        item.addEventListener('click', (e)=>{
-          e.stopPropagation();
-          select.selectedIndex = idx;
-          select.dispatchEvent(new Event('change', { bubbles:true }));
-          syncTrigger();
-          closeMenu();
-        });
-        menu.appendChild(item);
+  const zoneSelect = $('f-zone');
+  zoneSelect.addEventListener('change', ()=>{
+    const hub = $('f-hub');
+    hub.innerHTML = '';
+    const hubs = HUB_MAP[zoneSelect.value] || [];
+    if(hubs.length){
+      hub.disabled = false;
+      const ph = document.createElement('option');
+      ph.value=''; ph.disabled=true; ph.selected=true; ph.textContent='Choose';
+      hub.appendChild(ph);
+      hubs.forEach(h=>{
+        const o = document.createElement('option'); o.value=h; o.textContent=h;
+        hub.appendChild(o);
       });
+    } else {
+      hub.disabled = true;
+      const ph = document.createElement('option'); ph.textContent='Choose zone first';
+      hub.appendChild(ph);
     }
+  });
 
-    function syncTrigger(){
-      const opt = select.options[select.selectedIndex];
-      trigger.textContent = opt ? opt.textContent : '';
+  const catSelect = $('f-category');
+  Object.keys(CATEGORY_MAP).forEach(cat=>{
+    const o = document.createElement('option');
+    o.value = cat; o.textContent = cat;
+    catSelect.appendChild(o);
+  });
+  catSelect.addEventListener('change', ()=>{
+    const sub = $('f-subcategory');
+    sub.innerHTML = '';
+    const subs = CATEGORY_MAP[catSelect.value] || [];
+    if(subs.length){
+      sub.disabled = false;
+      const ph = document.createElement('option');
+      ph.value=''; ph.disabled=true; ph.selected=true; ph.textContent='Choose';
+      sub.appendChild(ph);
+      subs.forEach(s=>{
+        const o = document.createElement('option'); o.value=s; o.textContent=s;
+        sub.appendChild(o);
+      });
+    } else {
+      sub.disabled = true;
+      const ph = document.createElement('option'); ph.textContent='Choose category first';
+      sub.appendChild(ph);
     }
+  });
 
-    trigger.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      const willOpen = !menu.classList.contains('open');
-      document.querySelectorAll('.csel-menu.open').forEach(m=> m.classList.remove('open'));
-      document.querySelectorAll('.csel-trigger.open').forEach(t=> t.classList.remove('open'));
-      if(willOpen){ buildMenu(); menu.classList.add('open'); trigger.classList.add('open'); }
-    });
-
-    select.addEventListener('change', syncTrigger);
-    syncTrigger();
-  }
-
-  ['ff-channel','ff-zone','ff-category','ff-status'].forEach(id=> enhanceSelect($(id)));
-
-  async function authedFetch(path, opts={}){
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...opts,
-      headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${authToken}`, ...(opts.headers||{}) }
-    });
-    if(res.status === 401){ doLogout(); throw new Error('Session expired'); }
-    return res;
-  }
-
-  async function loadIssues(){
-    try{
-      const res = await authedFetch('/api/issues');
-      if(!res.ok) return [];
-      return await res.json();
-    }catch(e){
-      return [];
-    }
-  }
-
-  function showDashboard(){
-    $('sessionLabel').textContent = authName || authEmail;
-    $('view-login').style.display = 'none';
-    $('view-dashboard').style.display = 'block';
-    loadAndRenderDashboard();
-  }
-
-  function doLogout(){
-    authToken = null; authEmail = null; authName = null;
-    localStorage.removeItem('cbe_token'); localStorage.removeItem('cbe_email'); localStorage.removeItem('cbe_name');
-    $('view-dashboard').style.display = 'none';
-    $('view-login').style.display = 'block';
-  }
-
+  // ---------- login ----------
   $('loginForm').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const msg = $('loginMsg');
-    msg.textContent = 'Signing in…'; msg.className = 'status-msg';
+    msg.textContent = 'Signing in…'; msg.className='status-msg';
     try{
       const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
@@ -669,759 +587,101 @@
         msg.textContent = data.error || 'Sign in failed.'; msg.classList.add('err');
         return;
       }
-      authToken = data.token; authEmail = data.email; authName = data.name || null;
-      localStorage.setItem('cbe_token', authToken);
-      localStorage.setItem('cbe_email', authEmail);
-      if(authName) localStorage.setItem('cbe_name', authName);
-      showDashboard();
+      authToken = data.token;
+      authEmail = data.email;
+      $('sessionLabel').textContent = data.name || authEmail;
+      $('view-login').style.display = 'none';
+      $('view-app').style.display = 'block';
+      showAppTab('form');
     }catch(err){
       msg.textContent = 'Could not reach the server.'; msg.classList.add('err');
     }
   });
 
-  $('btnLogout').addEventListener('click', doLogout);
+  $('btnLogout').addEventListener('click', ()=>{
+    authToken = null; authEmail = null;
+    $('loginForm').reset();
+    if(window.ParcelJourney) window.ParcelJourney.reset();
+    showAppTab('form');
+    $('view-app').style.display = 'none';
+    $('view-login').style.display = 'block';
+  });
 
-  let allIssues = [];
-
-  async function loadAndRenderDashboard(){
-    allIssues = await loadIssues();
-    renderDashboard();
+  // ---------- tabs: Log an Issue / Parcel Journey ----------
+  function showAppTab(tab){
+    const parcel = tab === 'parcel';
+    $('tabForm').classList.toggle('active', !parcel);
+    $('tabParcel').classList.toggle('active', parcel);
+    $('panel-form').hidden = parcel;
+    $('panel-parcel').hidden = !parcel;
+    document.querySelector('.wrap').classList.toggle('wide', parcel);
+    $('pageTitle').textContent = parcel ? 'Parcel Journey' : 'Log an Issue';
+    if(parcel && window.ParcelJourney) window.ParcelJourney.show();
   }
+  $('tabForm').addEventListener('click', ()=> showAppTab('form'));
+  $('tabParcel').addEventListener('click', ()=> showAppTab('parcel'));
 
-  function currentFilters(){
-    return {
-      channel: $('ff-channel').value,
-      zone: $('ff-zone').value,
-      category: $('ff-category').value,
-      status: $('ff-status').value,
-      search: $('ff-search').value.trim().toLowerCase()
-    };
-  }
+  $('issueForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const msg = $('formMsg');
 
-  function applyFilters(list){
-    const f = currentFilters();
-    return list.filter(i=>{
-      if(f.channel && i.channel!==f.channel) return false;
-      if(f.zone && i.zone!==f.zone) return false;
-      if(f.category && i.category!==f.category) return false;
-      if(f.status && i.status!==f.status) return false;
-      if(f.search){
-        const hay = (i.consignment+' '+i.hub+' '+i.details).toLowerCase();
-        if(!hay.includes(f.search)) return false;
-      }
-      return true;
-    });
-  }
-
-  function renderStats(list){
-    const counts = {Open:0,'In Progress':0,Resolved:0};
-    list.forEach(i=>{ if(counts[i.status]!==undefined) counts[i.status]++; });
-    $('statStrip').innerHTML = `
-      <div class="stat"><div class="n">${list.length}</div><div class="l">Total logged</div></div>
-      <div class="stat open"><div class="n">${counts.Open}</div><div class="l">Open</div></div>
-      <div class="stat progress"><div class="n">${counts['In Progress']}</div><div class="l">In progress</div></div>
-      <div class="stat resolved"><div class="n">${counts.Resolved}</div><div class="l">Resolved</div></div>
-    `;
-  }
-
-  function renderBars(list){
-    const counts = {};
-    Object.keys(CATEGORY_MAP).forEach(c=>counts[c]=0);
-    list.forEach(i=>{ if(counts[i.category]!==undefined) counts[i.category]++; });
-    const max = Math.max(1, ...Object.values(counts));
-    const el = $('categoryBars');
-    el.innerHTML = '';
-    Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([cat,n])=>{
-      const row = document.createElement('div');
-      row.className='bar-row';
-      row.innerHTML = `<div class="lbl">${cat}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${(n/max*100)}%"></div></div>
-        <div class="cnt">${n}</div>`;
-      el.appendChild(row);
-    });
-  }
-
-  function fmtTime(iso){
-    const d = new Date(iso);
-    return d.toLocaleString('en-GB', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-  }
-
-  function escapeHtml(s){
-    return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-
-  const hubContactsCache = {};
-
-  async function toggleHubContacts(cell, hub){
-    const box = cell.querySelector('.hub-contacts');
-    if(box.style.display === 'block'){ box.style.display = 'none'; return; }
-    box.style.display = 'block';
-    if(hubContactsCache[hub]){
-      box.innerHTML = hubContactsCache[hub];
+    if(channelSelect.value === 'Social Media' && getSocialSource().length === 0){
+      msg.textContent = 'Select at least one Social Media source.'; msg.className='status-msg err';
       return;
     }
-    box.innerHTML = '<span style="color:var(--text-faint);">Loading…</span>';
+
+    msg.textContent = 'Saving…'; msg.className='status-msg';
+
+    const issue = {
+      consignment: $('f-consignment').value.trim(),
+      channel: $('f-channel').value,
+      media: MEDIA_CHANNELS.includes($('f-channel').value) ? $('f-media').value : '',
+      socialSource: channelSelect.value === 'Social Media' ? getSocialSource().join(', ') : '',
+      zone: $('f-zone').value,
+      hub: $('f-hub').value.trim(),
+      status: $('f-status').value,
+      category: $('f-category').value,
+      subcategory: $('f-subcategory').value,
+      details: $('f-details').value.trim(),
+      attachments: pendingAttachments
+    };
+
     try{
-      const res = await authedFetch(`/api/hub-assignments/${encodeURIComponent(hub)}`);
-      const info = await res.json();
-      const html = info ? `
-        <div>Ops: ${escapeHtml(info.ops_manager_name || '—')}</div>
-        <div>Regional: ${escapeHtml(info.regional_manager_name || '—')}</div>
-        <div>Cluster Lead: ${escapeHtml(info.cluster_lead_name || '—')}</div>
-        <div>Hub login: ${escapeHtml(info.hub_email || '—')}</div>
-      ` : '<span style="color:var(--text-faint);">No assignment on file</span>';
-      hubContactsCache[hub] = html;
-      box.innerHTML = html;
-    }catch(err){
-      box.innerHTML = '<span style="color:var(--red);">Could not load</span>';
-    }
-  }
-
-  // Renders any photo/audio attachments on an issue as small inline previews.
-  // Attachments are stored as a JSON string (see /areas/issue-escalation-
-  // system attachments column) — [{ type, filename, mimeType, dataUrl }].
-  function parseAttachments(i){
-    if (!i.attachments) return [];
-    try { return JSON.parse(i.attachments) || []; } catch { return []; }
-  }
-  function renderAttachments(i){
-    const list = parseAttachments(i);
-    if (!list.length) return '';
-    return `<div class="attach-row" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">` +
-      list.map((a, idx) => a.type === 'photo'
-        ? `<img src="${a.dataUrl}" alt="attachment" class="attach-thumb" data-issue="${i.id}" data-idx="${idx}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border,#ddd);cursor:pointer;" onerror="this.outerHTML='<div class=&quot;attach-broken&quot; title=&quot;Photo failed to load&quot;>🖼️ ⚠️</div>';">`
-        : `<audio controls src="${a.dataUrl}" style="height:30px;max-width:160px;"></audio>`
-      ).join('') + `</div>`;
-  }
-
-  // Opens a photo attachment full-size in an in-app lightbox rather than
-  // navigating the tab to its (very long) data: URI — top-level navigation
-  // to large data: URLs is restricted/unreliable in modern browsers, even
-  // though the same data renders fine as an <img> src (as the thumbnail
-  // already proves).
-  function openLightbox(dataUrl){
-    $('lightboxImg').src = dataUrl;
-    $('lightboxOverlay').style.display = 'flex';
-  }
-  function closeLightbox(){
-    $('lightboxOverlay').style.display = 'none';
-    $('lightboxImg').src = '';
-  }
-  $('lightboxClose').addEventListener('click', closeLightbox);
-  $('lightboxOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'lightboxOverlay') closeLightbox(); });
-  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeLightbox(); });
-  document.addEventListener('click', (e)=>{
-    const thumb = e.target.closest('.attach-thumb');
-    if(thumb) openLightbox(thumb.src);
-  });
-
-  function renderTable(list, bodyId, emptyId){
-    const body = $(bodyId);
-    body.innerHTML='';
-    const sorted = [...list].sort((a,b)=> new Date(b.ts)-new Date(a.ts));
-    $(emptyId).style.display = sorted.length ? 'none' : 'block';
-    sorted.forEach(i=>{
-      const tr = document.createElement('tr');
-      const canAct = canActOn(i);
-      tr.innerHTML = `
-        <td class="mono">${fmtTime(i.ts)}</td>
-        <td>${escapeHtml(i.consignment)}</td>
-        <td>${escapeHtml(i.channel)}</td>
-        <td>${escapeHtml(i.zone)}</td>
-        <td class="hub-cell" data-hub="${escapeHtml(i.hub||'')}">
-          <span class="hub-link">${escapeHtml(i.hub || '—')}</span>
-          <div class="hub-contacts" style="display:none;"></div>
-        </td>
-        <td>${escapeHtml(i.category)}</td>
-        <td>${escapeHtml(i.subcategory)}</td>
-        <td><span class="badge ${statusClass(i.status)}">${escapeHtml(i.status)}</span></td>
-        <td>${renderFlag(i)}</td>
-        <td>${escapeHtml(i.logged_by_name || i.logged_by)}</td>
-        <td class="details-cell"><div class="details-text">${escapeHtml(i.remarks || '—')}</div></td>
-        <td class="details-cell"><div class="details-text">${escapeHtml(i.details)}</div>${renderAttachments(i)}</td>
-        <td>${i.closed_by ? '<div style="color:var(--green);font-weight:600;font-size:12px;margin-bottom:4px;">✓ Closed</div>' : ''}${canAct ? `<button class="ghost" data-role="action-btn" style="padding:7px 14px;">Action</button>` : (i.closed_by ? '' : '—')}</td>
-      `;
-      tr.querySelector('.details-text').addEventListener('click', (e)=>{
-        e.target.classList.toggle('expanded');
-      });
-      const hubCell = tr.querySelector('.hub-cell');
-      if(i.hub){
-        hubCell.querySelector('.hub-link').addEventListener('click', ()=> toggleHubContacts(hubCell, i.hub));
-      }
-      if(canAct){
-        tr.querySelector('[data-role=action-btn]').addEventListener('click', (e)=>{ e.stopPropagation(); openActionModal(i.id); });
-      }
-      // Clicking anywhere else on the row opens the full history popup.
-      tr.classList.add('clickable');
-      tr.addEventListener('click', (e)=>{
-        if(e.target.closest('button, a, audio, img, .hub-link, .hub-contacts, .details-text')) return;
-        openDetail(i.id);
-      });
-      body.appendChild(tr);
-    });
-  }
-
-  // The Issues tab and the Parcel Journey Issue tab share one panel; each
-  // shows only its own issues (source = 'parcel_journey' is set by the
-  // Parcel Journey tab of the form).
-  let issueView = 'issues';
-  const isParcelJourneyIssue = (i) => i.source === 'parcel_journey';
-  function issuesForView(){
-    return applyFilters(allIssues).filter(i => isParcelJourneyIssue(i) === (issueView === 'pjissues'));
-  }
-
-  function renderDashboard(){
-    const filtered = issuesForView();
-    renderStats(filtered);
-    renderBars(filtered);
-    renderTable(filtered, 'issueTableBody', 'emptyState');
-    if($('panel-flagged').style.display === 'block') renderFlagged();
-  }
-
-  // ---------- Flagged tab ----------
-  const SEVERITY_RANK = { 'Very critical': 3, 'Critical': 2, 'Need attention': 1 };
-  function renderFlagged(){
-    const flagged = allIssues
-      .filter(i => SEVERITY_RANK[i.response_status])
-      .sort((a, b) => {
-        const rankDiff = SEVERITY_RANK[b.response_status] - SEVERITY_RANK[a.response_status];
-        if(rankDiff) return rankDiff;
-        return new Date(a.level_started_at || a.ts) - new Date(b.level_started_at || b.ts);
-      });
-    renderTable(flagged, 'flaggedTableBody', 'flaggedEmptyState');
-  }
-
-  // ---------- Who may act, history popup, Action popup (Close / Re-process) ----------
-  // Only the KAM who logged the issue can act on it, and only once the hub has
-  // replied (a remark exists). Re-process stays available after a close so a
-  // wrongly-closed issue can be sent back.
-  function canActOn(i){
-    return !!(i.remarks && (i.logged_by || '').toLowerCase() === (authEmail || '').toLowerCase());
-  }
-  const findIssue = (id) => allIssues.find(x => x.id === id);
-  function fmtFull(iso){
-    if(!iso) return '—';
-    const d = new Date(iso);
-    if(Number.isNaN(d.getTime())) return String(iso);
-    return d.toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  }
-  const LEVEL_LABEL = { L3: 'Hub', L2: 'Cluster / Regional', L1: 'Ops Manager' };
-
-  function eventHtml(e){
-    const d = e.detail || {};
-    const who = escapeHtml(e.actor_name || e.actor || 'System');
-    let title = escapeHtml(e.type), body = '';
-    if(e.type === 'logged'){
-      title = `Issue logged by ${who}`;
-      body = [d.hub && `Hub: ${d.hub}`, d.zone && `Zone: ${d.zone}`, d.category && `${d.category}${d.subcategory ? ' / ' + d.subcategory : ''}`].filter(Boolean).map(escapeHtml).join('\n');
-    }else if(e.type === 'escalated'){
-      title = `Escalated to ${escapeHtml(LEVEL_LABEL[d.level] || d.level || '')}${d.status ? ' · ' + escapeHtml(d.status) : ''}`;
-      body = 'No reply in time, so it moved up.';
-    }else if(e.type === 'ops_update'){
-      title = `${who} replied${d.status ? ' · ' + escapeHtml(d.status) : ''}`;
-      body = escapeHtml(d.remarks || '');
-    }else if(e.type === 'resolved'){
-      title = `${who} marked it Resolved`;
-      body = escapeHtml(d.remarks || '');
-    }else if(e.type === 'closed'){
-      title = `Closed by ${who}`;
-      body = d.merchantInformed ? `Merchant informed: ${escapeHtml(d.merchantInformed)}` : '';
-    }else if(e.type === 'reprocessed'){
-      title = `Re-processed by ${who}. Sent back to ${escapeHtml(d.hub || 'the hub')}`;
-      body = escapeHtml('Reason: ' + (d.reason || '—')) + (d.previousRemarks ? '\n' + escapeHtml('Hub had said: ' + d.previousRemarks) : '');
-    }
-    return `<div class="tl-item t-${escapeHtml(e.type)}"><div class="tl-title">${title}</div><div class="tl-when">${escapeHtml(fmtFull(e.ts))}</div>${body ? `<div class="tl-body">${body}</div>` : ''}</div>`;
-  }
-
-  let detailId = null;
-  async function openDetail(id){
-    const i = findIssue(id);
-    if(!i) return;
-    detailId = id;
-    $('dtTitle').textContent = i.consignment || 'Issue';
-    $('dtBadges').innerHTML = `<span class="badge ${statusClass(i.status)}">${escapeHtml(i.status)}</span> ${renderFlag(i)}${i.closed_by ? ' <span class="badge resolved">✓ Closed</span>' : ''}`;
-    // Full remark first, never truncated.
-    const rb = $('dtRemark');
-    if(i.remarks){
-      rb.className = 'dt-remark';
-      rb.innerHTML = `<div class="dt-label">Latest remark from hub / OPS</div><p class="dt-text">${escapeHtml(i.remarks)}</p>` +
-        `<div class="dt-sub">${escapeHtml([i.remarks_by, i.updated_at ? fmtFull(i.updated_at) : ''].filter(Boolean).join(' · '))}</div>`;
-    }else{
-      rb.className = 'dt-remark none';
-      rb.innerHTML = `<div class="dt-label">Latest remark from hub / OPS</div><p class="dt-text" style="color:var(--text-faint);">No reply from the hub yet.</p>`;
-    }
-    $('dtDetails').textContent = i.details || '—';
-    const facts = [['Logged', fmtFull(i.ts)], ['Logged by', i.logged_by_name || i.logged_by], ['Channel', i.channel], ['Zone', i.zone],
-      ['Hub', i.hub], ['Category', i.category], ['Subcategory', i.subcategory], ['Level', LEVEL_LABEL[i.escalation_level] || i.escalation_level]];
-    $('dtGrid').innerHTML = facts.filter(f => f[1]).map(f => `<div><dt>${escapeHtml(f[0])}</dt><dd>${escapeHtml(String(f[1]))}</dd></div>`).join('');
-    $('dtHistory').innerHTML = '<div style="color:var(--text-faint);font-size:13px;">Loading history…</div>';
-    $('dtFoot').innerHTML = canActOn(i) ? '<button class="primary" id="dtAction" type="button">Action</button>' : '';
-    const act = $('dtAction');
-    if(act) act.addEventListener('click', ()=> openActionModal(id));
-    $('detailOverlay').style.display = 'flex';
-    try{
-      const res = await authedFetch(`/api/issues/${encodeURIComponent(id)}/events`);
-      const data = await res.json();
-      if(detailId !== id) return; // popup was closed or switched meanwhile
-      if(!res.ok) throw new Error(data.error || 'failed');
-      const note = data.approximate ? '<div class="dt-sub" style="margin:0 0 8px;">Older issue: history rebuilt from saved fields, some steps may be missing.</div>' : '';
-      $('dtHistory').innerHTML = note + `<div class="tl">${data.events.map(eventHtml).join('')}</div>`;
-    }catch(err){
-      if(detailId === id) $('dtHistory').innerHTML = '<div style="color:var(--red);font-size:13px;">Could not load the history.</div>';
-    }
-  }
-  function closeDetail(){ $('detailOverlay').style.display = 'none'; detailId = null; }
-  $('dtClose').addEventListener('click', closeDetail);
-  $('detailOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'detailOverlay') closeDetail(); });
-
-  // Action popup: Close issue or Re-process
-  let actionId = null;
-  function openActionModal(id){
-    const i = findIssue(id);
-    if(!i || !canActOn(i)) return;
-    actionId = id;
-    $('actionSub').textContent = `${i.consignment || ''}${i.hub ? ' · ' + i.hub : ''}`;
-    $('actionClose').style.display = i.closed_by ? 'none' : 'block';
-    $('actionOverlay').style.display = 'flex';
-  }
-  function closeActionModal(){ $('actionOverlay').style.display = 'none'; }
-  $('actionCancel').addEventListener('click', ()=>{ closeActionModal(); actionId = null; });
-  $('actionOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'actionOverlay'){ closeActionModal(); actionId = null; } });
-  $('actionClose').addEventListener('click', ()=>{ const id = actionId; closeActionModal(); openCloseModal(id); });
-  $('actionReprocess').addEventListener('click', ()=>{
-    const i = findIssue(actionId); if(!i) return;
-    closeActionModal();
-    $('rpHub').textContent = i.hub || 'the hub';
-    $('rpReason').value = ''; $('rpMsg').textContent = '';
-    $('reprocessOverlay').style.display = 'flex';
-    $('rpReason').focus();
-  });
-  function closeReprocess(){ $('reprocessOverlay').style.display = 'none'; }
-  $('rpBack').addEventListener('click', ()=>{ closeReprocess(); openActionModal(actionId); });
-  $('reprocessOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'reprocessOverlay'){ closeReprocess(); actionId = null; } });
-  $('rpConfirm').addEventListener('click', async ()=>{
-    const reason = $('rpReason').value.trim();
-    const msg = $('rpMsg');
-    if(reason.length < 3){ msg.textContent = 'Write why it is being re-processed.'; msg.className = 'status-msg err'; return; }
-    msg.textContent = 'Sending…'; msg.className = 'status-msg';
-    $('rpConfirm').disabled = true;
-    try{
-      const res = await authedFetch(`/api/issues/${encodeURIComponent(actionId)}/reprocess`, { method:'PATCH', body: JSON.stringify({ reason }) });
-      const data = await res.json();
-      if(!res.ok){ msg.textContent = data.error || 'Could not re-process.'; msg.className = 'status-msg err'; return; }
-      closeReprocess(); closeDetail(); actionId = null;
-      await loadAndRenderDashboard();
-    }catch(err){
-      msg.textContent = 'Could not reach the server.'; msg.className = 'status-msg err';
-    }finally{
-      $('rpConfirm').disabled = false;
-    }
-  });
-  document.addEventListener('keydown', (e)=>{
-    if(e.key !== 'Escape') return;
-    for(const id of ['reprocessOverlay','actionOverlay','closeModalOverlay','detailOverlay']){
-      const el = $(id);
-      if(el && el.style.display !== 'none'){
-        if(id === 'closeModalOverlay') closeModalHide(); else el.style.display = 'none';
-        if(id === 'detailOverlay') detailId = null;
-        break;
-      }
-    }
-  });
-
-  // ---------- Close issue (with merchant-informed confirmation) ----------
-  let pendingCloseId = null;
-  function openCloseModal(id){
-    pendingCloseId = id;
-    $('closeModalMsg').textContent = '';
-    $('closeModalOverlay').style.display = 'flex';
-  }
-  function closeModalHide(){
-    $('closeModalOverlay').style.display = 'none';
-    pendingCloseId = null;
-  }
-  $('closeModalCancel').addEventListener('click', closeModalHide);
-  $('closeModalOverlay').addEventListener('click', (e)=>{
-    if(e.target.id === 'closeModalOverlay') closeModalHide();
-  });
-  async function confirmClose(merchantInformed){
-    if(!pendingCloseId) return;
-    const msgEl = $('closeModalMsg');
-    msgEl.textContent = 'Closing…'; msgEl.className = 'status-msg';
-    try{
-      const res = await authedFetch(`/api/issues/${encodeURIComponent(pendingCloseId)}/close`, {
-        method: 'PATCH',
-        body: JSON.stringify({ merchantInformed })
+      const res = await fetch(`${API_BASE}/api/issues`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(issue)
       });
       const data = await res.json();
       if(!res.ok){
-        msgEl.textContent = data.error || 'Could not close issue.'; msgEl.classList.add('err');
+        if(res.status === 401){
+          msg.textContent = 'Session expired — please sign in again.'; msg.classList.add('err');
+          $('btnLogout').click();
+          return;
+        }
+        msg.textContent = data.error || 'Could not save — try again.'; msg.classList.add('err');
         return;
       }
-      closeModalHide();
-      closeDetail();
-      await loadAndRenderDashboard();
+      msg.textContent = 'Issue logged.'; msg.classList.add('ok');
+      $('issueForm').reset();
+      $('f-hub').innerHTML = '<option value="" selected>Choose zone first</option>';
+      $('f-hub').disabled = true;
+      $('f-subcategory').innerHTML = '<option value="" selected>Choose category first</option>';
+      $('f-subcategory').disabled = true;
+      mediaField.style.display = 'none';
+      mediaSelect.required = false;
+      resetSocialSource();
+      pendingAttachments = [];
+      renderAttachList();
+      setTimeout(()=>{ msg.textContent=''; }, 3000);
     }catch(err){
-      msgEl.textContent = 'Could not reach the server.'; msgEl.classList.add('err');
+      msg.textContent = 'Could not reach the server — try again.'; msg.classList.add('err');
     }
-  }
-  $('closeModalYes').addEventListener('click', ()=> confirmClose('Yes'));
-  $('closeModalNo').addEventListener('click', ()=> confirmClose('No'));
-
-  ['ff-channel','ff-zone','ff-category','ff-status'].forEach(id=>{
-    $(id).addEventListener('change', renderDashboard);
   });
-  $('ff-search').addEventListener('input', renderDashboard);
-  $('btnRefresh').addEventListener('click', loadAndRenderDashboard);
-
-  $('btnExport').addEventListener('click', ()=>{
-    const filtered = issuesForView();
-    const headers = ['Logged','Consignment/Merchant','Channel','Zone','Hub','Category','Subcategory','Issue Status','Logged By','Remarks','Details'];
-    const rows = filtered.map(i=>[
-      fmtTime(i.ts), i.consignment, i.channel, i.zone, i.hub, i.category, i.subcategory, i.status, (i.logged_by_name || i.logged_by), (i.remarks || ''), i.details
-    ]);
-    const csv = [headers, ...rows].map(r=>
-      r.map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(',')
-    ).join('\n');
-    const blob = new Blob([csv], {type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = issueView === 'pjissues' ? 'parcel-journey-issues.csv' : 'escalation-issues.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  // ---------- Performance tab ----------
-  let activePerfView = 'kam';
-  let activePerfPeriod = 'day';
-  let activeKamFilter = 'all';
-  let activeHubFilter = 'all';
-
-  function switchMainTab(tab){
-    const issuePanel = tab === 'issues' || tab === 'pjissues';
-    if(issuePanel && tab !== issueView){
-      issueView = tab;
-      $('issueLogTitle').textContent = tab === 'pjissues' ? 'Parcel Journey issue log' : 'Escalation log';
-      renderDashboard();
-    }
-    $('tabBtnIssues').classList.toggle('active', tab === 'issues');
-    $('tabBtnPJIssues').classList.toggle('active', tab === 'pjissues');
-    $('tabBtnFlagged').classList.toggle('active', tab === 'flagged');
-    $('tabBtnPerformance').classList.toggle('active', tab === 'performance');
-    $('panel-issues').style.display = issuePanel ? 'block' : 'none';
-    $('panel-flagged').style.display = tab === 'flagged' ? 'block' : 'none';
-    $('panel-performance').style.display = tab === 'performance' ? 'block' : 'none';
-    if(tab === 'flagged') renderFlagged();
-    if(tab === 'performance') renderPerformance(activePerfView);
-  }
-  $('tabBtnIssues').addEventListener('click', ()=> switchMainTab('issues'));
-  $('tabBtnPJIssues').addEventListener('click', ()=> switchMainTab('pjissues'));
-  $('tabBtnFlagged').addEventListener('click', ()=> switchMainTab('flagged'));
-  $('tabBtnPerformance').addEventListener('click', ()=> switchMainTab('performance'));
-  document.querySelectorAll('#perfSubTabs .tab-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=> renderPerformance(btn.dataset.view));
-  });
-
-  function startOfDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-  function startOfWeek(d){
-    const day = d.getDay();
-    const diff = (day === 0 ? -6 : 1 - day);
-    const monday = new Date(d);
-    monday.setDate(d.getDate() + diff);
-    return startOfDay(monday);
-  }
-  function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
-  function periodKeyLabel(d, granularity){
-    if(granularity === 'day'){ const s = startOfDay(d); return { sortKey:s.getTime(), key:s.toISOString().slice(0,10), label:s.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) }; }
-    if(granularity === 'week'){ const s = startOfWeek(d); return { sortKey:s.getTime(), key:s.toISOString().slice(0,10), label:'Wk of '+s.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) }; }
-    const s = startOfMonth(d); return { sortKey:s.getTime(), key:s.toISOString().slice(0,7), label:s.toLocaleDateString('en-GB',{month:'short',year:'numeric'}) };
-  }
-
-  function hoursBetween(a,b){
-    const ms = new Date(b) - new Date(a);
-    return (isFinite(ms) && ms >= 0) ? ms / 36e5 : null;
-  }
-  function fmtHours(h){
-    if(h == null || isNaN(h)) return '—';
-    if(h < 24) return h.toFixed(1) + 'h';
-    return (h/24).toFixed(1) + 'd';
-  }
-  function avgOf(arr){ return arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : null; }
-  function ratePillClass(rate){ return rate >= 70 ? 'hi' : rate >= 40 ? 'mid' : 'lo'; }
-  function medalClass(idx){ return idx === 0 ? 'r1' : idx === 1 ? 'r2' : idx === 2 ? 'r3' : ''; }
-  function chgHtml(diff){
-    if(diff > 0) return `<span class="chg up">▲ ${diff}</span>`;
-    if(diff < 0) return `<span class="chg down">▼ ${Math.abs(diff)}</span>`;
-    return `<span class="chg flat">flat</span>`;
-  }
-
-  // ---- KAM performance: who escalated what, and how much of it got solved ----
-  function computeKamStats(issues){
-    const by = {};
-    issues.forEach(i=>{
-      const name = i.logged_by_name || i.logged_by || 'Unknown';
-      if(!by[name]) by[name] = { name, total:0, solved:0 };
-      by[name].total += 1;
-      if(i.status === 'Resolved') by[name].solved += 1;
-    });
-    return Object.values(by).map(k=>({
-      ...k, open: k.total - k.solved, rate: k.total ? Math.round((k.solved/k.total)*100) : 0
-    })).sort((a,b)=> b.total - a.total);
-  }
-
-  function bucketByKam(issues, granularity, kamFilter){
-    const scoped = kamFilter === 'all' ? issues : issues.filter(i => (i.logged_by_name || i.logged_by || 'Unknown') === kamFilter);
-    const buckets = {};
-    scoped.forEach(i=>{
-      if(!i.ts) return;
-      const d = new Date(i.ts);
-      if(isNaN(d.getTime())) return;
-      const { key, label, sortKey } = periodKeyLabel(d, granularity);
-      if(!buckets[key]) buckets[key] = { key, label, sortKey, escalated:0, solved:0 };
-      buckets[key].escalated += 1;
-      if(i.status === 'Resolved') buckets[key].solved += 1;
-    });
-    return Object.values(buckets).sort((a,b)=> b.sortKey - a.sortKey);
-  }
-
-  function renderKamTrendTable(issues, period, kamFilter){
-    const allBuckets = bucketByKam(issues, period, kamFilter);
-    const limit = period === 'day' ? 7 : period === 'week' ? 8 : 6;
-    const shown = allBuckets.slice(0, limit);
-    if(!shown.length) return `<div class="empty-state">Not enough dated issues yet for this report.</div>`;
-    const rows = shown.map((b, idx) => {
-      const prev = allBuckets[idx+1];
-      const rate = b.escalated ? Math.round((b.solved/b.escalated)*100) : 0;
-      return `<tr>
-        <td>${escapeHtml(b.label)}</td>
-        <td class="num-cell">${b.escalated}</td>
-        <td class="num-cell">${b.solved}</td>
-        <td><span class="rate-pill ${ratePillClass(rate)}">${rate}%</span></td>
-        <td>${prev ? chgHtml(b.escalated - prev.escalated) : '<span class="chg flat">—</span>'}</td>
-      </tr>`;
-    }).join('');
-    return `<div class="perf-table-wrap">
-      <table class="perf-table">
-        <thead><tr><th>Day</th><th>Escalated</th><th>Solved</th><th>Solve rate</th><th>Chg vs prior</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-  }
-
-  function renderKamPerformance(issues){
-    const kamStats = computeKamStats(issues);
-    const total = issues.length;
-    const totalSolved = kamStats.reduce((s,k)=>s+k.solved,0);
-    const kamCount = kamStats.length;
-    const overallRate = total ? Math.round((totalSolved/total)*100) : 0;
-    const content = $('perfContent');
-    if(!kamCount){ content.innerHTML = `<div class="empty-state">No issues logged yet.</div>`; return; }
-    if(activeKamFilter !== 'all' && !kamStats.find(k=>k.name===activeKamFilter)) activeKamFilter = 'all';
-
-    content.innerHTML = `
-      <div class="stat-grid">
-        <div class="stat-card"><div class="num">${total}</div><div class="lbl">Total issues</div></div>
-        <div class="stat-card"><div class="num">${totalSolved}</div><div class="lbl">Solved</div></div>
-        <div class="stat-card"><div class="num">${total-totalSolved}</div><div class="lbl">Pending</div></div>
-        <div class="stat-card"><div class="num">${kamCount}</div><div class="lbl">KAMs reporting</div></div>
-        <div class="stat-card"><div class="num">${overallRate}%</div><div class="lbl">Overall solve rate</div></div>
-      </div>
-
-      <div class="perf-section-title">KAM Leaderboard (total)</div>
-      <div class="perf-table-wrap">
-        <table class="perf-table">
-          <thead><tr><th>#</th><th>KAM</th><th>Escalated</th><th>Solved</th><th>Pending</th><th>Solve rate</th></tr></thead>
-          <tbody>
-            ${kamStats.map((k, idx) => `
-              <tr>
-                <td><span class="rank-badge ${medalClass(idx)}">${idx+1}</span></td>
-                <td>${escapeHtml(k.name)}</td>
-                <td class="num-cell">${k.total}</td>
-                <td class="num-cell">${k.solved}</td>
-                <td class="num-cell">${k.open}</td>
-                <td><span class="rate-pill ${ratePillClass(k.rate)}">${k.rate}%</span></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="perf-section-title">Day-on-day trend</div>
-      <div class="perf-toolbar">
-        <select id="kamTrendSelect">
-          <option value="all" ${activeKamFilter==='all'?'selected':''}>All KAMs (combined)</option>
-          ${kamStats.map(k => `<option value="${escapeHtml(k.name)}" ${activeKamFilter===k.name?'selected':''}>${escapeHtml(k.name)}</option>`).join('')}
-        </select>
-        <div class="report-toggle" id="kamReportToggle">
-          <button data-period="day" title="Day over Day" class="${activePerfPeriod==='day'?'active':''}">DOD</button>
-          <button data-period="week" title="Week over Week" class="${activePerfPeriod==='week'?'active':''}">WOW</button>
-          <button data-period="month" title="Month over Month" class="${activePerfPeriod==='month'?'active':''}">MOM</button>
-        </div>
-      </div>
-      <div id="kamTrendWrap">${renderKamTrendTable(issues, activePerfPeriod, activeKamFilter)}</div>
-    `;
-
-    $('kamTrendSelect').addEventListener('change', (e)=>{
-      activeKamFilter = e.target.value;
-      $('kamTrendWrap').innerHTML = renderKamTrendTable(issues, activePerfPeriod, activeKamFilter);
-    });
-    enhanceSelect($('kamTrendSelect'));
-    document.querySelectorAll('#kamReportToggle button').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        activePerfPeriod = btn.dataset.period;
-        document.querySelectorAll('#kamReportToggle button').forEach(b=> b.classList.toggle('active', b===btn));
-        $('kamTrendWrap').innerHTML = renderKamTrendTable(issues, activePerfPeriod, activeKamFilter);
-      });
-    });
-  }
-
-  // ---- Hub performance: issue load, solve count, and how long resolution takes per hub ----
-  function computeHubPerfStats(issues){
-    const by = {};
-    issues.forEach(i=>{
-      const hub = i.hub && i.hub !== '—' ? i.hub : 'Unassigned';
-      if(!by[hub]) by[hub] = { hub, total:0, solved:0, remarks:0, solveTimes:[] };
-      by[hub].total += 1;
-      if(i.remarks && String(i.remarks).trim()) by[hub].remarks += 1;
-      if(i.status === 'Resolved'){
-        by[hub].solved += 1;
-        if(i.updated_at){ const h = hoursBetween(i.ts, i.updated_at); if(h != null) by[hub].solveTimes.push(h); }
-      }
-    });
-    return Object.values(by).map(h=>({
-      ...h, rate: h.total ? Math.round((h.solved/h.total)*100) : 0, avgSolveHours: avgOf(h.solveTimes)
-    })).sort((a,b)=> b.total - a.total);
-  }
-
-  function bucketByHub(issues, granularity, hubFilter){
-    const scoped = hubFilter === 'all' ? issues : issues.filter(i => (i.hub && i.hub !== '—' ? i.hub : 'Unassigned') === hubFilter);
-    const buckets = {};
-    scoped.forEach(i=>{
-      if(!i.ts) return;
-      const d = new Date(i.ts);
-      if(isNaN(d.getTime())) return;
-      const { key, label, sortKey } = periodKeyLabel(d, granularity);
-      if(!buckets[key]) buckets[key] = { key, label, sortKey, total:0, solved:0, remarks:0, solveTimes:[] };
-      buckets[key].total += 1;
-      if(i.remarks && String(i.remarks).trim()) buckets[key].remarks += 1;
-      if(i.status === 'Resolved'){
-        buckets[key].solved += 1;
-        if(i.updated_at){ const h = hoursBetween(i.ts, i.updated_at); if(h != null) buckets[key].solveTimes.push(h); }
-      }
-    });
-    return Object.values(buckets).map(b=>({ ...b, avgSolveHours: avgOf(b.solveTimes) })).sort((a,b)=> b.sortKey - a.sortKey);
-  }
-
-  function renderHubTrendTable(issues, period, hubFilter){
-    const allBuckets = bucketByHub(issues, period, hubFilter);
-    const limit = period === 'day' ? 7 : period === 'week' ? 8 : 6;
-    const shown = allBuckets.slice(0, limit);
-    if(!shown.length) return `<div class="empty-state">Not enough dated issues yet for this report.</div>`;
-    const rows = shown.map((b, idx) => {
-      const prev = allBuckets[idx+1];
-      return `<tr>
-        <td>${escapeHtml(b.label)}</td>
-        <td class="num-cell">${b.total}</td>
-        <td class="num-cell">${b.solved}</td>
-        <td class="num-cell">${fmtHours(b.avgSolveHours)}</td>
-        <td class="num-cell">${b.remarks}</td>
-        <td>${prev ? chgHtml(b.total - prev.total) : '<span class="chg flat">—</span>'}</td>
-      </tr>`;
-    }).join('');
-    return `<div class="perf-table-wrap">
-      <table class="perf-table">
-        <thead><tr><th>Day</th><th>Issues</th><th>Solved</th><th>Avg solve time</th><th>Remarks</th><th>Chg vs prior</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-  }
-
-  function renderHubPerformance(issues){
-    const hubStats = computeHubPerfStats(issues);
-    const total = issues.length;
-    const totalSolved = hubStats.reduce((s,h)=>s+h.solved,0);
-    const totalRemarks = hubStats.reduce((s,h)=>s+h.remarks,0);
-    const hubCount = hubStats.length;
-    const overallRate = total ? Math.round((totalSolved/total)*100) : 0;
-    const overallAvgSolve = avgOf(hubStats.flatMap(h=>h.solveTimes));
-    const content = $('perfContent');
-    if(!hubCount){ content.innerHTML = `<div class="empty-state">No issues logged yet.</div>`; return; }
-    if(activeHubFilter !== 'all' && !hubStats.find(h=>h.hub===activeHubFilter)) activeHubFilter = 'all';
-
-    content.innerHTML = `
-      <div class="stat-grid">
-        <div class="stat-card"><div class="num">${total}</div><div class="lbl">Total issues</div></div>
-        <div class="stat-card"><div class="num">${totalSolved}</div><div class="lbl">Solved</div></div>
-        <div class="stat-card"><div class="num">${hubCount}</div><div class="lbl">Hubs reporting</div></div>
-        <div class="stat-card"><div class="num">${fmtHours(overallAvgSolve)}</div><div class="lbl">Avg solve time</div></div>
-        <div class="stat-card"><div class="num">${totalRemarks}</div><div class="lbl">Remarks logged</div></div>
-        <div class="stat-card"><div class="num">${overallRate}%</div><div class="lbl">Overall solve rate</div></div>
-      </div>
-
-      <div class="perf-section-title">Hub Leaderboard (total)</div>
-      <div class="perf-table-wrap">
-        <table class="perf-table">
-          <thead><tr><th>#</th><th>Hub</th><th>Issues</th><th>Solved</th><th>Avg solve time</th><th>Remarks</th><th>Solve rate</th></tr></thead>
-          <tbody>
-            ${hubStats.map((h, idx) => `
-              <tr>
-                <td><span class="rank-badge ${medalClass(idx)}">${idx+1}</span></td>
-                <td>${escapeHtml(h.hub)}</td>
-                <td class="num-cell">${h.total}</td>
-                <td class="num-cell">${h.solved}</td>
-                <td class="num-cell">${fmtHours(h.avgSolveHours)}</td>
-                <td class="num-cell">${h.remarks}</td>
-                <td><span class="rate-pill ${ratePillClass(h.rate)}">${h.rate}%</span></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="perf-section-title">Day-on-day trend</div>
-      <div class="perf-toolbar">
-        <select id="hubTrendSelect">
-          <option value="all" ${activeHubFilter==='all'?'selected':''}>All hubs (combined)</option>
-          ${hubStats.map(h => `<option value="${escapeHtml(h.hub)}" ${activeHubFilter===h.hub?'selected':''}>${escapeHtml(h.hub)}</option>`).join('')}
-        </select>
-        <div class="report-toggle" id="hubReportToggle">
-          <button data-period="day" title="Day over Day" class="${activePerfPeriod==='day'?'active':''}">DOD</button>
-          <button data-period="week" title="Week over Week" class="${activePerfPeriod==='week'?'active':''}">WOW</button>
-          <button data-period="month" title="Month over Month" class="${activePerfPeriod==='month'?'active':''}">MOM</button>
-        </div>
-      </div>
-      <div id="hubTrendWrap">${renderHubTrendTable(issues, activePerfPeriod, activeHubFilter)}</div>
-    `;
-
-    $('hubTrendSelect').addEventListener('change', (e)=>{
-      activeHubFilter = e.target.value;
-      $('hubTrendWrap').innerHTML = renderHubTrendTable(issues, activePerfPeriod, activeHubFilter);
-    });
-    enhanceSelect($('hubTrendSelect'));
-    document.querySelectorAll('#hubReportToggle button').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        activePerfPeriod = btn.dataset.period;
-        document.querySelectorAll('#hubReportToggle button').forEach(b=> b.classList.toggle('active', b===btn));
-        $('hubTrendWrap').innerHTML = renderHubTrendTable(issues, activePerfPeriod, activeHubFilter);
-      });
-    });
-  }
-
-  function renderPerformance(view){
-    activePerfView = view;
-    document.querySelectorAll('#perfSubTabs .tab-btn').forEach(b=>{
-      b.classList.toggle('active', b.dataset.view === view);
-    });
-    const issues = applyFilters(allIssues);
-    if(view === 'kam') renderKamPerformance(issues);
-    else renderHubPerformance(issues);
-  }
-
-  if(authToken){
-    showDashboard();
-  } else {
-    $('view-login').style.display = 'block';
-  }
 </script>
+<script src="parcel-journey-ui.js"></script>
 </body>
 </html>
