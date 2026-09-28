@@ -49,6 +49,19 @@ curl -X POST https://YOUR-SERVICE.onrender.com/api/auth/register \
 After sign-in the form page has two tabs: **Log an Issue** and **Parcel Journey**.
 The Parcel Journey is the hub-wise SLA engine from TQM V4, running on Turso:
 
+- **Two journeys**, switched at the top of the tab, each with its own file,
+  SLA matrix, stage boxes and CID Journey:
+  - **FID** (forward): the Parcel End-to-End Flat Audit export. Reverse rows
+    in that file are ignored. Stages include **CW to Sub Sort** and **Sub Sort to CW**.
+  - **RID** (reverse): its own export (sheet "RID Journey") with Created,
+    Sorted, CW / Sub Sort reached, LMH, Return to Merchant, Terminal and
+    Invoice times. Stages: Created→Sorted, Sorted→CW, Sorted→Sub Sort,
+    Sub Sort→CW, CW→LMH, Sub Sort→LMH, LMH→Return to Merchant,
+    Terminal→Invoice. Tables `pj_rid_parcels` and `rid_sla_hub_matrix`.
+  - Templates in `templates/`: `FID_SLA_upload_template.csv`,
+    `RID_SLA_upload_template.csv` (also as .xlsx), and the demo datasets `carrybee_fid_demo_dataset.xlsx` / `carrybee_rid_demo_dataset.xlsx`.
+- **SLA targets:** upload a new file at any time, or use **Edit targets** to
+  change hours per hub in the app; either replaces that journey's matrix.
 - **Data:** an admin uploads the parcel export (.xlsx / .csv) from the tab. The
   browser keeps only the columns the engine needs and sends them in chunks to
   `pj_parcels`; the new file replaces the old one only once every chunk has
