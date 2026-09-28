@@ -1235,6 +1235,67 @@
 
   /* ------------------------------------------------------------- trace ---- */
 
+  /* Outcome wording for the step list and the click-to-open step detail. */
+  var OUTCOME_TEXT = {
+    closed_within: 'Done, within target', closed_late: 'Done, over target', open_within: 'Running, inside target',
+    open_breached: 'Running, over target', pending: 'Not reached yet', sequence_error: 'Check the source data',
+    not_applicable: 'Not on this route'
+  };
+
+  function stepWhen(step) {
+    return { start: step.startAt || '', end: step.endAt || '' };
+  }
+
+  /* Every step of the journey in order, with its own start and end time. Not on this
+     route steps are listed too (greyed) so the sequence reads end to end. */
+  function timelineTableHtml(p, timeline) {
+    var html = '<div class="pj-table-wrap"><table class="pj-table pj-steps-table"><thead><tr><th>#</th><th>Step</th>' +
+      '<th>Started</th><th>Ended</th><th class="num">Time</th><th>Outcome</th></tr></thead><tbody>';
+    html += '<tr><td>0</td><td>Parcel created</td><td class="mono">' + esc(p.createdAt || '—') + '</td><td></td><td></td><td></td></tr>';
+    timeline.forEach(function (step, index) {
+      var when = stepWhen(step);
+      var na = step.outcome === 'not_applicable';
+      var time = na || step.hours === null || step.hours === undefined ? '—' : (step.key === 'pickup' ? esc(fmtLate(step.hours)) + ' vs cutoff' : esc(fmtLate(step.hours)));
+      html += '<tr' + (na ? ' class="dim"' : '') + '><td>' + (index + 1) + '</td><td>' + esc(step.short) +
+        '<div class="small dim">' + esc(step.from) + ' to ' + esc(step.to) + '</div></td>' +
+        '<td class="mono">' + esc(when.start || (na ? '' : 'not started')) + '</td>' +
+        '<td class="mono">' + esc(when.end || (na ? '' : (step.outcome === 'open_within' || step.outcome === 'open_breached' ? 'still running' : ''))) + '</td>' +
+        '<td class="num">' + time + '</td><td>' + esc(OUTCOME_TEXT[step.outcome] || step.outcome) + '</td></tr>';
+    });
+    html += '<tr><td></td><td>Last update in the file</td><td class="mono">' + esc(p.updatedAt || '—') + '</td><td></td><td></td><td></td></tr>';
+    return html + '</tbody></table></div>';
+  }
+
+  /* The panel that opens under a bar when it is clicked: full timestamps and every fact about that step. */
+  function stepDetailHtml(step) {
+    var when = stepWhen(step);
+    var rows = [
+      ['From event', step.from], ['Started at', when.start || 'not started'],
+      ['To event', step.to], ['Ended at', when.end || (step.outcome === 'open_within' || step.outcome === 'open_breached' ? 'still running' : 'not reached')]
+    ];
+    if (step.cutoffAt) rows.push(['Pickup cutoff', step.cutoffAt]);
+    if (step.hours !== null && step.hours !== undefined) rows.push([step.key === 'pickup' ? 'Late by' : 'Time in stage', fmtLate(step.hours)]);
+    if (step.target) rows.push(['Hub target', step.target + ' h' + (step.targetSource ? ' (' + step.targetSource + ')' : '')]);
+    if (step.hub) rows.push(['Hub', step.hub]);
+    if (step.side) rows.push(['Side', step.side]);
+    rows.push(['Outcome', OUTCOME_TEXT[step.outcome] || step.outcome]);
+    if (step.reason) rows.push(['Note', step.reason]);
+    return '<dl class="pj-step-facts">' + rows.map(function (r) {
+      return '<div><dt>' + esc(r[0]) + '</dt><dd class="mono">' + esc(r[1]) + '</dd></div>';
+    }).join('') + '</dl>';
+  }
+
+  function toggleStep(target) {
+    var row = target.closest('.pj-gantt-row');
+    if (!row) return;
+    var panel = row.nextElementSibling;
+    if (!panel || !panel.classList.contains('pj-gantt-detail')) return;
+    var open = panel.hasAttribute('hidden');
+    if (open) panel.removeAttribute('hidden'); else panel.setAttribute('hidden', '');
+    row.classList.toggle('open', open);
+    row.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
   function traceParcel(cid) {
     cid = String(cid || '').trim();
     if (!cid) return;
@@ -1270,17 +1331,16 @@
           figure = '<span class="' + (breached ? 'pj-bad-text' : '') + (running ? ' running' : '') + '">' + esc(fmtLate(step.hours)) +
             '</span>' + (step.target ? ' <span class="dim">of ' + step.target + ' h</span>' : '') + (running ? ' <span class="dim">so far</span>' : '');
         }
-        html += '<div class="pj-gantt-row"><div class="pj-gantt-label">' + esc(step.short) + '</div><div class="pj-gantt-track">' +
+        html += '<div class="pj-gantt-row pj-gantt-click" data-pj="step-toggle" role="button" tabindex="0" aria-expanded="false" title="Click for the timestamps of this step"><div class="pj-gantt-label">' + esc(step.short) + '</div><div class="pj-gantt-track">' +
           (step.key === 'pickup' ? '' : '<i class="pj-gantt-bar ' + (breached ? 'd-breach' : running ? 'd-open' : 'd-ok') +
             '" style="width:' + width.toFixed(1) + '%"></i>') +
           (marker !== null ? '<b class="pj-gantt-target" style="left:' + marker.toFixed(1) + '%"></b>' : '') +
-          '</div><div class="pj-gantt-fig">' + figure + '</div></div><div class="pj-gantt-detail small dim">' +
-          (step.startAt ? esc(step.from) + ' ' + esc(step.startAt) : 'not started') +
-          (step.endAt ? ', ' + esc(step.to) + ' ' + esc(step.endAt) : '') + (step.hub ? ', ' + esc(step.hub) : '') +
-          (step.reason ? '. ' + esc(step.reason) : '') + '</div>';
+          '</div><div class="pj-gantt-fig">' + figure + '</div></div><div class="pj-gantt-detail" hidden>' +
+          stepDetailHtml(step) + '</div>';
       });
       html += '</div><p class="pj-note">Bars are hours spent in the stage; the tick is the hub target; red is over target. ' +
-        'Snapshot ' + esc(res.snapshot) + '.</p>';
+        'Click a bar to see its timestamps. Snapshot ' + esc(res.snapshot) + '.</p>' +
+        '<h4 class="pj-steps-title">All steps with time</h4>' + timelineTableHtml(p, res.timeline);
       replaceModal(modalId, html);
     }).catch(function (error) {
       replaceModal(modalId, '<h3>' + esc(cid) + '</h3><p class="pj-error">' + esc(error.message) + '</p>');
@@ -1330,6 +1390,7 @@
       renderRaiseAttachments(PJ.raise);
     }
     else if (action === 'raise-done') { closeModal(); load(false); }
+    else if (action === 'step-toggle') toggleStep(target);
     else if (action === 'trace') traceParcel(target.getAttribute('data-cid'));
     else if (action === 'trace-input') traceParcel(el('pj-cid-lookup').value);
     else if (action === 'journey-mode') loadJourney(target.getAttribute('data-mode'), 1);
@@ -1382,6 +1443,8 @@
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape' && MODALS.length) { modalBack(); return; }
     var id = event.target && event.target.id;
+    if ((event.key === 'Enter' || event.key === ' ') && event.target && event.target.classList &&
+        event.target.classList.contains('pj-gantt-click')) { event.preventDefault(); toggleStep(event.target); return; }
     if (event.key === 'Enter' && id === 'pj-cid-lookup') traceParcel(event.target.value);
     if (event.key === 'Enter' && id === 'pj-journey-search') {
       PJ.journeySearch = event.target.value.trim();
