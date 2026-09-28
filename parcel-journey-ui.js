@@ -24,21 +24,27 @@
 (function () {
   'use strict';
 
+  function freshOptions(dimension) {
+    return { dimension: dimension || 'hub', from: '', to: '', region: '', cluster: '', hub: '', route: '', search: '' };
+  }
+
+  // One view state per journey (FID forward, RID reverse). Switching journeys
+  // parks the current one and restores the other, so nothing is lost.
   var PJ = {
+    j: 'fid',
+    parked: {},
     view: null,
     journey: null,
     journeySearch: '',
-    options: { dimension: 'hub', idType: 'All', from: '', to: '', region: '', cluster: '', hub: '', route: '', search: '' },
+    options: freshOptions(),
     box: {},                 // per stage: { open, hub, noIssue, search, selected: {cid: true} }
     breakdownPage: 1,
     version: 0
   };
+  var PARKED_FIELDS = ['view', 'journey', 'journeySearch', 'options', 'box', 'breakdownPage'];
+  var JOURNEY_TABS = [['fid', 'FID journey', 'Forward parcels'], ['rid', 'RID journey', 'Reverse parcels']];
   var BREAKDOWN_PAGE_SIZE = 25;
   var SHEETJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-  var PIPE_COLUMNS = [
-    ['pickup'], ['pickup_fmh'], ['fmh_cw', 'fmh_subsort'],
-    ['cw_lmh', 'subsort_lmh'], ['lmh_attempt', 'lmh_terminal'], ['terminal_invoice']
-  ];
   var PARCEL_STATE_TAG = {
     process: '<span class="pj-tag warn">In process</span>',
     tni: '<span class="pj-tag info">Terminal, not invoiced</span>',
@@ -87,7 +93,10 @@
     line.textContent = message;
   }
 
+  /** Every call carries the journey on screen (FID or RID), unless it names one itself. */
   function api(method, path, body) {
+    if (method === 'GET') path += (path.indexOf('?') < 0 ? '?' : '&') + 'journey=' + PJ.j;
+    else body = Object.assign({ journey: PJ.j }, body || {});
     return fetch(API_BASE + path, {
       method: method,
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
@@ -167,8 +176,12 @@
   }
 
   function reset() {
+    PJ.j = 'fid';
+    PJ.parked = {};
     PJ.view = null;
     PJ.journey = null;
+    PJ.journeySearch = '';
+    PJ.options = freshOptions();
     PJ.box = {};
     PJ.breakdownPage = 1;
     PJ.version++;
@@ -176,12 +189,27 @@
     if (root()) root().innerHTML = '';
   }
 
+  function switchJourney(next) {
+    if (next === PJ.j || !JOURNEY_TABS.some(function (t) { return t[0] === next; })) return;
+    var park = {};
+    PARKED_FIELDS.forEach(function (field) { park[field] = PJ[field]; });
+    PJ.parked[PJ.j] = park;
+    PJ.j = next;
+    var back = PJ.parked[next];
+    PARKED_FIELDS.forEach(function (field) {
+      PJ[field] = back ? back[field] : (field === 'options' ? freshOptions() : field === 'box' ? {} :
+        field === 'breakdownPage' ? 1 : field === 'journeySearch' ? '' : null);
+    });
+    PJ.version++;
+    if (PJ.view) render(); else load(true);
+  }
+
   function load(spinner) {
     var version = ++PJ.version;
     if (spinner || !PJ.view) {
-      root().innerHTML = '<div class="pj-panel pj-loading"><div class="pj-skeleton"></div>' +
-        '<p class="pj-note">Loading the Parcel Journey… The first load after an upload or a server restart ' +
-        'reads every parcel from the database and can take a few seconds.</p></div>';
+      root().innerHTML = journeySwitchHtml() + '<div class="pj-panel pj-loading"><div class="pj-skeleton"></div>' +
+        '<p class="pj-note">Loading the ' + (PJ.j === 'rid' ? 'RID' : 'FID') + ' journey… The first load after an ' +
+        'upload or a server restart reads every parcel from the database and can take a few seconds.</p></div>';
     } else {
       var chip = el('pj-busy');
       if (chip) chip.hidden = false;
@@ -193,7 +221,7 @@
       render();
     }).catch(function (error) {
       if (version !== PJ.version) return;
-      root().innerHTML = '<div class="pj-panel"><h2>Something went wrong</h2><p class="pj-error">' +
+      root().innerHTML = journeySwitchHtml() + '<div class="pj-panel"><h2>Something went wrong</h2><p class="pj-error">' +
         esc(error.message) + '</p><button type="button" class="primary" data-pj="reload">Retry</button></div>';
     });
   }
@@ -202,12 +230,18 @@
     var d = PJ.view;
     var html = dataBarHtml(d);
     if (d.empty) {
-      html += '<div class="pj-panel pj-empty"><h2>No parcel data yet</h2><p>Upload the Parcel Journey export ' +
-        '(the .xlsx or .csv with CID, Pickup Hub, Delivery Hub and the stage timestamps). It is stored in the ' +
-        'database and every signed-in user sees the same file.' +
+      html += '<div class="pj-panel pj-empty"><h2>No ' + esc(d.journeyLabel) + ' parcel data yet</h2><p>' +
+        (d.journeyKey === 'rid'
+          ? 'Upload the RID journey export (.xlsx or .csv, a sheet named "RID Journey" is picked first) with CID, ' +
+            'Pickup Hub (origin), Delivery Hub (merchant\'s hub), Created, Sorted, CW / Sub Sort reached, LMH, ' +
+            'Return to Merchant, Terminal and Invoice times.'
+          : 'Upload the Parcel Journey export (.xlsx or .csv, a sheet named "Parcel Journey" is picked first) with ' +
+            'CID, Pickup Hub, Delivery Hub and the stage timestamps. Only Forward rows are used here; Reverse rows ' +
+            'belong in the RID journey.') +
+        ' It is stored in the database and every signed-in user sees the same file.' +
         (d.canUpload ? '' : ' Ask a Parcel Journey admin to upload it.') + '</p>' +
-        (d.canUpload ? '<button type="button" class="primary" data-pj="upload-parcels">Upload parcel file</button>' : '') +
-        '</div>';
+        (d.canUpload ? '<button type="button" class="primary" data-pj="upload-parcels">Upload ' + esc(d.journeyLabel) +
+          ' file</button>' : '') + '</div>';
       html += slaBarHtml(d);
       root().innerHTML = html;
       return;
@@ -230,15 +264,24 @@
 
   /* ----------------------------------------------------------- data bar -- */
 
+  function journeySwitchHtml() {
+    return '<div class="pj-journey-switch" role="tablist" aria-label="Journey">' + JOURNEY_TABS.map(function (t) {
+      return '<button type="button" role="tab" aria-selected="' + (PJ.j === t[0]) + '" class="pj-jtab' +
+        (PJ.j === t[0] ? ' on' : '') + '" data-pj="journey-switch" data-journey="' + t[0] + '"><b>' + t[1] +
+        '</b><small>' + t[2] + '</small></button>';
+    }).join('') + '</div>';
+  }
+
   function dataBarHtml(d) {
     var ds = d.dataset;
-    return '<div class="pj-databar"><div><h2>Parcel Journey</h2><p class="pj-sub">' +
-      (ds ? 'File <b>' + esc(ds.fileName) + '</b> · ' + int(ds.rows) + ' parcels · uploaded by ' +
-            esc(ds.uploadedBy) + ', ' + esc(ds.uploadedAt)
-          : 'No parcel file loaded.') + '</p></div>' +
+    return journeySwitchHtml() + '<div class="pj-databar"><div><h2>' + esc(d.journeyLongLabel) + ' journey</h2><p class="pj-sub">' +
+      (ds ? 'File <b>' + esc(ds.fileName) + '</b> · ' + int(ds.rows) + ' parcels' +
+            (ds.ignoredRows ? ' (' + int(ds.ignoredRows) + ' reverse rows in the file ignored here)' : '') +
+            ' · uploaded by ' + esc(ds.uploadedBy) + ', ' + esc(ds.uploadedAt)
+          : 'No ' + esc(d.journeyLabel) + ' file loaded.') + '</p></div>' +
       '<div class="pj-actions"><span class="pj-chip muted" id="pj-busy" hidden>Loading…</span>' +
       (ds ? '<button type="button" class="ghost" data-pj="reload">Refresh</button>' : '') +
-      (d.canUpload ? '<button type="button" class="ghost" data-pj="upload-parcels">Upload parcel file</button>' : '') +
+      (d.canUpload ? '<button type="button" class="ghost" data-pj="upload-parcels">Upload ' + esc(d.journeyLabel) + ' file</button>' : '') +
       '<input type="file" id="pj-parcel-file" accept=".xlsx,.xls,.csv" hidden></div></div>';
   }
 
@@ -263,14 +306,15 @@
 
   function slaBarHtml(d) {
     var m = d.matrix;
-    var html = '<details class="pj-panel pj-sla"' + (m.hubCount ? '' : ' open') + '><summary><div><h2>SLA targets</h2>' +
+    var rid = d.journeyKey === 'rid';
+    var html = '<div class="pj-panel pj-sla"><div class="pj-panel-head"><div><h2>' + esc(d.journeyLabel) + ' SLA targets</h2>' +
       '<p class="pj-sub">' + (m.hubCount
         ? int(m.hubCount) + ' hubs configured' + (m.fileName ? ' from <b>' + esc(m.fileName) + '</b>' : '') +
-          (m.uploadedBy ? ', uploaded by ' + esc(m.uploadedBy) : '') + '.'
+          (m.uploadedBy ? ', by ' + esc(m.uploadedBy) : '') + (m.uploadedAt ? ', ' + esc(m.uploadedAt) : '') + '.'
         : 'No hub rows loaded. Every stage is on the network default.') +
-      ' Pickup cutoff ' + esc(fmtHour(d.cutoffs.defaultHour)) + ' by default, ' + int(d.cutoffs.businessRows) +
-      ' businesses on a custom cutoff.</p></div><span class="pj-chip ' + (m.hubCount ? 'good' : 'warn') + '">' +
-      (m.hubCount ? 'Configured' : 'Needs upload') + '</span></summary>';
+      (rid ? '' : ' Pickup cutoff ' + esc(fmtHour(d.cutoffs.defaultHour)) + ' by default, ' + int(d.cutoffs.businessRows) +
+        ' businesses on a custom cutoff.') + '</p></div><span class="pj-chip ' + (m.hubCount ? 'good' : 'warn') + '">' +
+      (m.hubCount ? 'Configured' : 'Needs upload') + '</span></div>';
 
     if (m.hubsWithoutTarget && m.hubsWithoutTarget.length) {
       html += '<div class="pj-notice warn">' + int(m.hubsWithoutTarget.length) + ' hubs in the parcel file have no row ' +
@@ -279,25 +323,31 @@
     }
     html += '<div class="pj-upload-row">';
     if (d.canUpload) {
-      html += '<button type="button" class="pj-upload-drop" data-pj="upload-sla"><strong>Upload the SLA workbook</strong>' +
-        '<span>SLA_upload.xlsx, or the same sheet saved as .csv, with hub names exactly as on the hub list. It replaces ' +
-        'the whole matrix in the database, so send every hub each time. A hub left out falls back to the Network ' +
-        'Default row.</span></button><input type="file" id="pj-sla-file" accept=".xlsx,.xls,.csv" hidden>';
+      html += '<button type="button" class="pj-upload-drop" data-pj="upload-sla"><strong>Upload a new ' + esc(d.journeyLabel) +
+        ' SLA file</strong><span>The ' + esc(d.journeyLabel) + ' SLA upload template, as .xlsx or .csv, with hub names exactly as ' +
+        'on the hub list. It replaces the whole ' + esc(d.journeyLabel) + ' matrix, so send every hub each time; a hub left ' +
+        'out falls back to the Network Default row. To change a few targets, use Edit targets instead.</span></button>' +
+        '<input type="file" id="pj-sla-file" accept=".xlsx,.xls,.csv" hidden>';
     } else {
       html += '<p class="pj-note">Only a Parcel Journey admin can change the SLA matrix.</p>';
     }
-    html += '<div class="pj-upload-side"><button type="button" class="ghost" data-pj="view-matrix">View current matrix</button>' +
+    html += '<div class="pj-upload-side">' +
+      (d.canUpload ? '<button type="button" class="primary" data-pj="edit-matrix">Edit targets</button>' : '') +
+      '<button type="button" class="ghost" data-pj="view-matrix">View current matrix</button>' +
       '<button type="button" class="ghost" data-pj="export-matrix">Download current matrix</button>' +
+      '<a class="pj-link" href="' + esc(d.template) + '" download>Download blank ' + esc(d.journeyLabel) + ' template</a>' +
       '<div id="pj-sla-status" class="pj-note"></div></div></div>';
 
-    html += '<div class="pj-table-wrap"><table class="pj-table"><thead><tr><th>Stage</th><th>Measured from</th>' +
+    html += '<details class="pj-sla-stages"><summary>Stage definitions (' + int(d.stageDefs.length) + ' stages)</summary>' +
+      '<div class="pj-table-wrap"><table class="pj-table"><thead><tr><th>Stage</th><th>Measured from</th>' +
       '<th>Measured to</th><th>Target owned by</th><th class="num">Network default</th></tr></thead><tbody>';
     d.stageDefs.forEach(function (stage) {
       html += '<tr><td>' + esc(stage.label) + '</td><td class="mono small">' + esc(stage.from) + '</td>' +
-        '<td class="mono small">' + esc(stage.to) + '</td><td>' + (stage.hubSide === 'pickup' ? 'Pickup hub' : 'Delivery hub') +
+        '<td class="mono small">' + esc(stage.to) + '</td><td>' +
+        (stage.hubSide === 'pickup' ? (rid ? 'Origin hub' : 'Pickup hub') : (rid ? 'Merchant (return) hub' : 'Delivery hub')) +
         '</td><td class="num">' + (stage.isCutoff ? 'cutoff' : (stage.network ? stage.network + ' h' : '-')) + '</td></tr>';
     });
-    return html + '</tbody></table></div></details>';
+    return html + '</tbody></table></div></details></div>';
   }
 
   function noticesHtml(d) {
@@ -334,7 +384,7 @@
     var html = '<div class="pj-panel"><h2>Journey right now</h2><p class="pj-sub">Parcels in process or terminal and ' +
       'not invoiced, stuck past target at each stage, in route order. Stacked stages are alternative routes, or two ' +
       'measures from the same start. Click a stage to open its parcels.</p><div class="pj-pipe">';
-    PIPE_COLUMNS.forEach(function (column, index) {
+    d.pipeColumns.forEach(function (column, index) {
       if (index) html += '<div class="pj-pipe-arrow" aria-hidden="true"></div>';
       html += '<div class="pj-pipe-col">';
       column.forEach(function (key) {
@@ -384,9 +434,6 @@
   function filtersHtml(d) {
     var o = d.filterOptions, f = d.filters;
     return '<div class="pj-panel pj-filters"><div class="pj-filter-row">' +
-      '<label>Type<select id="pj-type">' + ['All', 'Forward', 'Reverse'].map(function (v) {
-        return '<option' + (f.idType === v ? ' selected' : '') + '>' + v + '</option>';
-      }).join('') + '</select></label>' +
       '<label>From<input type="date" id="pj-from" value="' + esc(f.from) + '" min="' + esc(o.minDay) + '" max="' + esc(o.maxDay) + '"></label>' +
       '<label>To<input type="date" id="pj-to" value="' + esc(f.to) + '" min="' + esc(o.minDay) + '" max="' + esc(o.maxDay) + '"></label>' +
       '<label>Region<select id="pj-region">' + optionList(o.regions, f.region, 'All regions') + '</select></label>' +
@@ -411,7 +458,6 @@
 
   function applyFilters() {
     var o = PJ.options;
-    o.idType = el('pj-type').value;
     o.from = el('pj-from').value;
     o.to = el('pj-to').value;
     o.region = el('pj-region').value;
@@ -1020,7 +1066,7 @@
     var stage = stageByKey(stageKey);
     if (!stage) return;
     var state = boxState(stageKey);
-    var selection = { stageKey: stageKey, options: PJ.options };
+    var selection = { journey: PJ.j, stageKey: stageKey, options: PJ.options };
     var single = null;
     if (mode === 'one') {
       single = stage.rows[index];
@@ -1038,28 +1084,117 @@
 
   /* ------------------------------------------------------ SLA uploads ---- */
 
+  function slaResultText(res) {
+    var parts = [res.hubs + ' hubs saved'];
+    if (res.skipped) parts.push(res.skipped + ' blank or duplicate rows skipped');
+    if (res.invalidCount) parts.push(res.invalidCount + ' cells outside 0 to 720 h ignored');
+    if (res.addedNetworkDefault) parts.push('a Network Default row was added');
+    if (res.missingColumns && res.missingColumns.length) {
+      parts.push('not in the file, so on the network default: ' + res.missingColumns.join(', '));
+    }
+    return parts.join(', ') + '.';
+  }
+
+  /** Reloads the view of a journey after its matrix changed, if that journey is still on screen. */
+  function reloadIfShowing(journey) {
+    if (PJ.j === journey) load(false);
+    else if (PJ.parked[journey]) PJ.parked[journey].view = null;
+  }
+
   function handleSlaFile(file) {
+    var journey = PJ.j;
     say('pj-sla-status', 'Reading ' + file.name);
-    readWorkbookRows(file, 'SLA Hub Matrix').then(function (rows) {
+    readWorkbookRows(file, journey === 'rid' ? 'RID SLA Hub Matrix' : 'SLA Hub Matrix').then(function (rows) {
       say('pj-sla-status', 'Uploading ' + (rows.length - 1) + ' hub rows. Every parcel is re-measured against the new targets.');
-      return api('POST', '/api/parcel/sla-matrix', { fileName: file.name, rows: rows });
+      return api('POST', '/api/parcel/sla-matrix', { journey: journey, fileName: file.name, rows: rows });
     }).then(function (res) {
-      var parts = [res.hubs + ' hubs loaded'];
-      if (res.skipped) parts.push(res.skipped + ' blank or duplicate rows skipped');
-      if (res.invalidCount) parts.push(res.invalidCount + ' cells outside 0 to 720 h ignored');
-      if (res.addedNetworkDefault) parts.push('a Network Default row was added');
-      if (res.missingColumns && res.missingColumns.length) parts.push('missing columns: ' + res.missingColumns.join(', '));
-      say('pj-sla-status', parts.join(', ') + '.', 'good');
-      window.setTimeout(function () { load(false); }, 900);
+      say('pj-sla-status', slaResultText(res), 'good');
+      window.setTimeout(function () { reloadIfShowing(journey); }, 900);
     }).catch(function (error) {
       say('pj-sla-status', error.message, 'bad');
     });
   }
 
+  /**
+   * Edit targets: the whole matrix as a grid of hours. Change cells, add or
+   * remove hubs, then save; it replaces the matrix exactly like an upload.
+   * A blank cell means that hub uses the Network Default for that stage.
+   */
+  function editMatrix() {
+    var journey = PJ.j;
+    var label = journey === 'rid' ? 'RID' : 'FID';
+    var modalId = openModal('<h3>Edit ' + label + ' SLA targets</h3><p class="pj-sub">Loading</p>', { title: 'Edit ' + label + ' targets', wide: true });
+    api('GET', '/api/parcel/sla-matrix', null).then(function (res) {
+      var ed = { journey: journey, stages: res.stages, headers: res.headers,
+                 rows: [{ hub: 'Network Default', hours: res.network, locked: true }].concat(res.rows.map(function (r) {
+                   return { hub: r.hub, hours: r.hours };
+                 })), filter: '' };
+      PJ.editor = ed;
+      replaceModal(modalId, editorHtml(ed), { onShow: function () { paintEditorRows(); } });
+    }).catch(function (error) {
+      replaceModal(modalId, '<h3>Edit ' + label + ' SLA targets</h3><p class="pj-error">' + esc(error.message) + '</p>');
+    });
+  }
+
+  function editorHtml(ed) {
+    return '<h3>Edit ' + (ed.journey === 'rid' ? 'RID' : 'FID') + ' SLA targets</h3>' +
+      '<p class="pj-sub">Hours per stage, per hub. A blank cell uses the Network Default row. Saving replaces the whole matrix ' +
+      'and re-measures every parcel.</p>' +
+      '<div class="pj-editor-tools"><input type="text" id="pj-ed-filter" class="pj-inline-input" placeholder="Find a hub">' +
+      '<input type="text" id="pj-ed-new" class="pj-inline-input" placeholder="New hub name (as on the hub list)">' +
+      '<button type="button" class="ghost mini" data-pj="ed-add">Add hub</button></div>' +
+      '<div class="pj-table-wrap tall"><table class="pj-table pj-editor"><thead><tr><th>Hub</th>' +
+      ed.stages.map(function (stage) { return '<th class="num small" title="' + esc(stage.column) + '">' + esc(stage.short || stage.column) + '</th>'; }).join('') +
+      '<th></th></tr></thead><tbody id="pj-ed-body"></tbody></table></div>' +
+      '<div class="pj-modal-actions"><button type="button" class="ghost" data-pj="modal-back">Cancel</button>' +
+      '<button type="button" class="primary" data-pj="ed-save">Save targets</button></div><div id="pj-ed-line" class="pj-note"></div>';
+  }
+
+  function paintEditorRows() {
+    var ed = PJ.editor, body = el('pj-ed-body');
+    if (!ed || !body) return;
+    var needle = ed.filter.toLowerCase();
+    body.innerHTML = ed.rows.map(function (row, index) {
+      if (needle && !row.locked && row.hub.toLowerCase().indexOf(needle) < 0) return '';
+      return '<tr' + (row.locked ? ' class="pj-network-row"' : '') + '><td>' + esc(row.hub) + '</td>' +
+        ed.stages.map(function (stage) {
+          var value = row.hours[stage.key];
+          return '<td class="num"><input type="number" min="0" max="720" step="0.25" class="pj-ed-cell" data-row="' + index +
+            '" data-stage="' + esc(stage.key) + '" value="' + (value === undefined || value === null ? '' : esc(value)) + '"></td>';
+        }).join('') +
+        '<td>' + (row.locked ? '' : '<button type="button" class="pj-chip-remove" data-pj="ed-remove" data-row="' + index +
+          '" title="Remove this hub">✕</button>') + '</td></tr>';
+    }).join('');
+    var filter = el('pj-ed-filter');
+    if (filter && filter.value !== ed.filter) filter.value = ed.filter;
+  }
+
+  function saveEditor(button) {
+    var ed = PJ.editor;
+    if (!ed) return;
+    var table = [ed.headers].concat(ed.rows.map(function (row) {
+      return [row.hub].concat(ed.stages.map(function (stage) {
+        var value = row.hours[stage.key];
+        return value === undefined || value === null || value === '' ? '' : value;
+      }));
+    }));
+    button.disabled = true;
+    say('pj-ed-line', 'Saving ' + (ed.rows.length - 1) + ' hubs…');
+    api('POST', '/api/parcel/sla-matrix', { journey: ed.journey, fileName: 'Edited in the app', rows: table }).then(function (res) {
+      say('pj-ed-line', slaResultText(res), 'good');
+      say('pj-sla-status', 'Targets edited: ' + slaResultText(res), 'good');
+      window.setTimeout(function () { closeModal(); reloadIfShowing(ed.journey); }, 700);
+    }).catch(function (error) {
+      button.disabled = false;
+      say('pj-ed-line', error.message, 'bad');
+    });
+  }
+
   function viewMatrix() {
-    var modalId = openModal('<h3>SLA Hub Matrix</h3><p class="pj-sub">Loading</p>', { title: 'SLA Hub Matrix', wide: true });
+    var label = PJ.j === 'rid' ? 'RID' : 'FID';
+    var modalId = openModal('<h3>' + label + ' SLA Hub Matrix</h3><p class="pj-sub">Loading</p>', { title: label + ' SLA Hub Matrix', wide: true });
     api('GET', '/api/parcel/sla-matrix').then(function (res) {
-      var html = '<h3>SLA Hub Matrix</h3><p class="pj-sub">' + int(res.rows.length) + ' hubs, stored in the database. ' +
+      var html = '<h3>' + label + ' SLA Hub Matrix</h3><p class="pj-sub">' + int(res.rows.length) + ' hubs, stored in the database. ' +
         'A dash means the hub uses the network default.</p><div class="pj-table-wrap tall"><table class="pj-table"><thead><tr><th>Hub</th>';
       res.stages.forEach(function (stage) { html += '<th class="num small">' + esc(stage.column) + '</th>'; });
       html += '</tr></thead><tbody><tr class="pj-network-row"><td>Network default</td>';
@@ -1086,7 +1221,7 @@
       res.rows.forEach(function (row) {
         lines.push([row.hub].concat(res.stages.map(function (stage) { return row.hours[stage.key] || ''; })));
       });
-      saveText('SLA_upload_current.csv', lines.map(function (line) {
+      saveText((PJ.j === 'rid' ? 'RID' : 'FID') + '_SLA_upload_current.csv', lines.map(function (line) {
         return line.map(function (cell) {
           var value = String(cell);
           return /[",\n]/.test(value) ? '"' + value.replace(/"/g, '""') + '"' : value;
@@ -1099,7 +1234,9 @@
 
   function handleParcelFile(file) {
     var spec = PJ.view.uploadColumns;
-    var modalId = openModal('<h3>Upload parcel file</h3><p class="pj-sub">' + esc(file.name) + '</p>' +
+    var journey = PJ.j;
+    var label = PJ.view.journeyLabel;
+    var modalId = openModal('<h3>Upload ' + esc(label) + ' file</h3><p class="pj-sub">' + esc(file.name) + '</p>' +
       '<div class="pj-progress"><i id="pj-up-bar" style="width:0%"></i></div><p id="pj-up-line" class="pj-note">Reading the file… ' +
       'A full export can take a little while in the browser.</p>', { title: 'Upload' });
     function progress(fraction, message, tone) {
@@ -1109,14 +1246,22 @@
       say('pj-up-line', message, tone);
     }
 
-    readWorkbookRows(file, 'Parcel Journey').then(function (rows) {
+    readWorkbookRows(file, PJ.view.preferredSheet).then(function (rows) {
       if (rows.length < 2) throw new Error('The file has a header row but no parcel rows.');
       var index = {};
       rows[0].forEach(function (header, position) {
         var name = String(header).replace(/\s+/g, ' ').trim().toLowerCase();
         if (name && index[name] === undefined) index[name] = position;
       });
-      var positions = spec.map(function (col) { return index[col.header.toLowerCase()]; });
+      // A column is found by its header or any of its known aliases.
+      var positions = spec.map(function (col) {
+        var names = [col.header].concat(col.aliases || []);
+        for (var k = 0; k < names.length; k++) {
+          var at = index[names[k].toLowerCase()];
+          if (at !== undefined) return at;
+        }
+        return undefined;
+      });
       var missing = spec.filter(function (col, k) { return positions[k] === undefined; }).map(function (col) { return col.header; });
       var body = rows.slice(1).map(function (row) {
         return spec.map(function (col, k) {
@@ -1129,14 +1274,14 @@
       }).filter(function (row) { return row[0]; });
       if (!body.length) throw new Error('No row has a CID.');
       progress(0.02, int(body.length) + ' parcels read' + (missing.length ? '; not in the file: ' + missing.join(', ') : '') + '. Uploading…');
-      return api('POST', '/api/parcel/upload/start', { fileName: file.name, totalRows: body.length, missingColumns: missing })
+      return api('POST', '/api/parcel/upload/start', { journey: journey, fileName: file.name, totalRows: body.length, missingColumns: missing })
         .then(function (start) {
           var size = Math.min(start.chunkRows || 2000, 2000);
           var sent = 0;
           function next() {
             if (sent >= body.length) return Promise.resolve();
             var chunk = body.slice(sent, sent + size);
-            return api('POST', '/api/parcel/upload/chunk', { batchId: start.batchId, rows: chunk }).then(function () {
+            return api('POST', '/api/parcel/upload/chunk', { journey: journey, batchId: start.batchId, rows: chunk }).then(function () {
               sent += chunk.length;
               progress(0.02 + 0.9 * sent / body.length, int(sent) + ' of ' + int(body.length) + ' parcels stored…');
               return next();
@@ -1144,19 +1289,23 @@
           }
           return next().then(function () {
             progress(0.95, 'Switching to the new file and measuring every parcel…');
-            return api('POST', '/api/parcel/upload/finish', { batchId: start.batchId });
+            return api('POST', '/api/parcel/upload/finish', { journey: journey, batchId: start.batchId });
           });
         });
     }).then(function (res) {
       progress(1, int(res.parcels) + ' parcels loaded. Snapshot ' + res.snapshot + '.', 'good');
       if (modalIsOpen(modalId)) {
-        replaceModal(modalId, '<h3>Parcel file loaded</h3><p class="pj-sub">' + int(res.parcels) + ' parcels are live for every ' +
-          'user. Snapshot ' + esc(res.snapshot) + ', the latest event in the file.</p>' +
+        replaceModal(modalId, '<h3>' + esc(label) + ' file loaded</h3><p class="pj-sub">' + int(res.parcels) + ' parcels are live for every ' +
+          'user' + (res.ignoredRows ? ' (' + int(res.ignoredRows) + ' reverse rows in the file are ignored in the FID journey)' : '') + '. Snapshot ' + esc(res.snapshot) + ', the latest event in the file.</p>' +
           '<div class="pj-modal-actions"><button type="button" class="primary" data-pj="modal-close">Done</button></div>');
       }
-      PJ.box = {};
-      PJ.breakdownPage = 1;
-      load(true);
+      if (PJ.j === journey) {
+        PJ.box = {};
+        PJ.breakdownPage = 1;
+        load(true);
+      } else if (PJ.parked[journey]) {
+        PJ.parked[journey] = null;
+      }
     }).catch(function (error) {
       progress(0, error.message + ' The previous file is still the live one.', 'bad');
     });
@@ -1363,14 +1512,33 @@
     if (action === 'reload') load(false);
     else if (action === 'upload-parcels') el('pj-parcel-file').click();
     else if (action === 'upload-sla') el('pj-sla-file').click();
+    else if (action === 'journey-switch') switchJourney(target.getAttribute('data-journey'));
+    else if (action === 'edit-matrix') editMatrix();
+    else if (action === 'ed-save') saveEditor(target);
+    else if (action === 'ed-remove' && PJ.editor) {
+      PJ.editor.rows.splice(Number(target.getAttribute('data-row')), 1);
+      paintEditorRows();
+    }
+    else if (action === 'ed-add' && PJ.editor) {
+      var name = el('pj-ed-new').value.replace(/\s+/g, ' ').trim();
+      var exists = PJ.editor.rows.some(function (row) { return row.hub.toLowerCase() === name.toLowerCase(); });
+      if (!name) say('pj-ed-line', 'Type the hub name first.', 'bad');
+      else if (exists) say('pj-ed-line', name + ' is already in the matrix.', 'bad');
+      else {
+        PJ.editor.rows.splice(1, 0, { hub: name, hours: {} });
+        PJ.editor.filter = '';
+        el('pj-ed-new').value = '';
+        paintEditorRows();
+        say('pj-ed-line', name + ' added at the top. Fill its hours, or leave cells blank for the Network Default.');
+      }
+    }
     else if (action === 'view-matrix') viewMatrix();
     else if (action === 'export-matrix') exportMatrix();
     else if (action === 'stage') openStage(target.getAttribute('data-stage'));
     else if (action === 'download') downloadStage(target.getAttribute('data-stage'), target);
     else if (action === 'apply-filters') applyFilters();
     else if (action === 'clear-filters') {
-      PJ.options = { dimension: PJ.options.dimension || 'hub', idType: 'All', from: '', to: '', region: '', cluster: '',
-                     hub: '', route: '', search: '' };
+      PJ.options = freshOptions(PJ.options.dimension);
       PJ.box = {};
       PJ.breakdownPage = 1;
       load(false);
@@ -1429,7 +1597,25 @@
   var searchTimer = null;
   document.addEventListener('input', function (event) {
     var node = event.target;
-    if (!inScope(node) || !node.getAttribute || node.getAttribute('data-pj-role') !== 'box-search') return;
+    if (!inScope(node) || !node.getAttribute) return;
+    if (PJ.editor && node.classList.contains('pj-ed-cell')) {
+      var hours = PJ.editor.rows[Number(node.getAttribute('data-row'))].hours;
+      var value = node.value.trim();
+      if (value === '') delete hours[node.getAttribute('data-stage')];
+      else hours[node.getAttribute('data-stage')] = Number(value);
+      return;
+    }
+    if (PJ.editor && node.id === 'pj-ed-filter') {
+      PJ.editor.filter = node.value;
+      window.clearTimeout(searchTimer);
+      searchTimer = window.setTimeout(function () {
+        paintEditorRows();
+        var again = el('pj-ed-filter');
+        if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+      }, 200);
+      return;
+    }
+    if (node.getAttribute('data-pj-role') !== 'box-search') return;
     var stageKey = node.getAttribute('data-stage');
     window.clearTimeout(searchTimer);
     searchTimer = window.setTimeout(function () {
