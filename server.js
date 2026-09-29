@@ -20,6 +20,10 @@ const {
   SMTP_PASS,
   MAIL_FROM,
   IR_TEAM_EMAIL = 'issue.resolution@carrybee.com',
+  GMAIL_CLIENT_ID,
+  GMAIL_CLIENT_SECRET,
+  GMAIL_REFRESH_TOKEN,
+  GMAIL_USER,
   DAILY_REPORT_CRON = '59 23 * * *',
   DAILY_REPORT_TZ = 'Asia/Dhaka',
   DAILY_REPORT_ENABLED = 'true'
@@ -687,7 +691,7 @@ app.post('/api/issues/:id/send-to-ir', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'You can only send issues you logged yourself to IR.' });
     }
     const transport = getMailer();
-    if (!transport) return res.status(503).json({ error: 'Email is not configured on the server (SMTP settings missing).' });
+    if (!transport) return res.status(503).json({ error: 'Email is not configured on the server. Add the GMAIL_* settings (or SMTP_* on a paid Render plan) in Render > Environment.' });
 
     const who = await db.execute({ sql: 'SELECT name FROM users WHERE email = ?', args: [req.user] });
     const name = (who.rows[0] && who.rows[0].name) || req.user;
@@ -711,7 +715,7 @@ app.post('/api/issues/:id/send-to-ir', requireAuth, async (req, res) => {
     const text = `${name} (${req.user}) sent an issue to the IR team.\n\n${note}\n\n` + rows.map(r => `${r[0]}: ${r[1]}`).join('\n');
 
     await transport.sendMail({
-      from: `"${String(name).replace(/"/g, '')} via Carrybee" <${SMTP_USER}>`,
+      from: `"${String(name).replace(/"/g, '')} via Carrybee" <${GMAIL_USER || SMTP_USER || 'no-reply@carrybee.com'}>`,
       replyTo: `"${String(name).replace(/"/g, '')}" <${req.user}>`,
       to: IR_TEAM_EMAIL,
       subject: `[IR] ${ref}${issue.hub ? ' · ' + issue.hub : ''}`,
@@ -721,7 +725,7 @@ app.post('/api/issues/:id/send-to-ir', requireAuth, async (req, res) => {
     res.json({ ok: true, to: IR_TEAM_EMAIL });
   } catch (err) {
     console.error('send-to-ir failed:', err);
-    res.status(500).json({ error: 'Could not send the email. Check the SMTP settings.' });
+    res.status(500).json({ error: 'Could not send the email: ' + String(err.message || err).slice(0, 160) });
   }
 });
 
@@ -908,14 +912,63 @@ app.patch('/api/ops/issues/:id', requireAuth, async (req, res) => {
 const PENDING_STATUSES = ['Open', 'In Progress'];
 
 let mailer = null;
+
+// Two ways to send, picked by which env vars exist:
+//  1) Gmail API over HTTPS (GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET / GMAIL_REFRESH_TOKEN).
+//     Use this on Render's free tier, which blocks SMTP ports 25/465/587.
+//  2) Plain SMTP (SMTP_HOST / SMTP_USER / SMTP_PASS), for paid Render or local runs.
+// Both expose the same sendMail(options) so callers don't care which is active.
+let gmailToken = { value: null, exp: 0 };
+async function getGmailAccessToken() {
+  if (gmailToken.value && Date.now() < gmailToken.exp - 60000) return gmailToken.value;
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: GMAIL_CLIENT_ID, client_secret: GMAIL_CLIENT_SECRET,
+      refresh_token: GMAIL_REFRESH_TOKEN, grant_type: 'refresh_token'
+    })
+  });
+  const j = await r.json();
+  if (!r.ok || !j.access_token) throw new Error('Gmail token refresh failed: ' + (j.error_description || j.error || r.status));
+  gmailToken = { value: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 };
+  return gmailToken.value;
+}
 function getMailer() {
   if (mailer) return mailer;
+  if (GMAIL_CLIENT_ID && GMAIL_CLIENT_SECRET && GMAIL_REFRESH_TOKEN) {
+    const builder = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: 'unix' });
+    const gmailFrom = GMAIL_USER || SMTP_USER;
+    mailer = {
+      async sendMail(opts) {
+        // Gmail only sends as the authorised account, so force From to it
+        // (keep the display name the caller chose).
+        const m = String(opts.from || '').match(/^\s*"?([^"<]*?)"?\s*<[^>]+>\s*$/);
+        const from = gmailFrom ? (m && m[1] ? `"${m[1].trim()}" <${gmailFrom}>` : gmailFrom) : opts.from;
+        const built = await builder.sendMail({ ...opts, from });
+        const raw = built.message.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const token = await getGmailAccessToken();
+        const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ raw })
+        });
+        if (!r.ok) {
+          const t = await r.text();
+          throw new Error('Gmail API send failed (' + r.status + '): ' + t.slice(0, 300));
+        }
+        return r.json();
+      }
+    };
+    return mailer;
+  }
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
   mailer = nodemailer.createTransport({
     host: SMTP_HOST,
     port: Number(SMTP_PORT),
     secure: String(SMTP_SECURE).toLowerCase() === 'true',
-    auth: { user: SMTP_USER, pass: SMTP_PASS }
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 20000
   });
   return mailer;
 }
