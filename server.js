@@ -688,8 +688,15 @@ app.post('/api/issues/:id/send-to-ir', requireAuth, async (req, res) => {
     const existing = await db.execute({ sql: 'SELECT * FROM issues WHERE id = ?', args: [req.params.id] });
     const issue = existing.rows[0];
     if (!issue) return res.status(404).json({ error: 'Issue not found.' });
-    if ((issue.logged_by || '').toLowerCase() !== req.user.toLowerCase()) {
-      return res.status(403).json({ error: 'You can only send issues you logged yourself to IR.' });
+    // Allowed: the KAM who logged it, or an Ops user whose scope covers the
+    // issue's hub (same scope rule as /api/ops/issues).
+    let allowed = (issue.logged_by || '').toLowerCase() === req.user.toLowerCase();
+    if (!allowed) {
+      const scope = await resolveOpsScope(req.user);
+      allowed = !!(scope.hubs && scope.hubs.includes(issue.hub));
+    }
+    if (!allowed) {
+      return res.status(403).json({ error: 'You can only send issues you logged, or issues in your assigned hubs, to IR.' });
     }
     const transport = getMailer();
     if (!transport) return res.status(503).json({ error: 'Email is not configured on the server. Add the GMAIL_* settings (or SMTP_* on a paid Render plan) in Render > Environment.' });
@@ -701,7 +708,7 @@ app.post('/api/issues/:id/send-to-ir', requireAuth, async (req, res) => {
     const rows = [
       ['Consignment', issue.consignment], ['Hub', issue.hub], ['Zone', issue.zone],
       ['Category', [issue.category, issue.subcategory].filter(Boolean).join(' / ')],
-      ['Status', issue.status], ['Logged by', `${name} (${req.user})`],
+      ['Status', issue.status], ['Logged by', issue.logged_by], ['Sent by', `${name} (${req.user})`],
       ['Original details', issue.details], ['Hub / OPS remark', issue.remarks]
     ].filter(r => r[1]);
     const html = `
