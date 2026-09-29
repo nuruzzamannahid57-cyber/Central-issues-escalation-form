@@ -682,6 +682,7 @@ function irEsc(s) {
 app.post('/api/issues/:id/send-to-ir', requireAuth, async (req, res) => {
   try {
     const note = String((req.body || {}).details || '').trim();
+    const subjectIn = String((req.body || {}).subject || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
     if (note.length < 3) return res.status(400).json({ error: 'Write the details to send to the IR team.' });
     if (note.length > 3000) return res.status(400).json({ error: 'Details are too long (max 3000 characters).' });
     const existing = await db.execute({ sql: 'SELECT * FROM issues WHERE id = ?', args: [req.params.id] });
@@ -718,10 +719,10 @@ app.post('/api/issues/:id/send-to-ir', requireAuth, async (req, res) => {
       from: `"${String(name).replace(/"/g, '')} via Carrybee" <${GMAIL_USER || SMTP_USER || 'no-reply@carrybee.com'}>`,
       replyTo: `"${String(name).replace(/"/g, '')}" <${req.user}>`,
       to: IR_TEAM_EMAIL,
-      subject: `[IR] ${ref}${issue.hub ? ' · ' + issue.hub : ''}`,
+      subject: subjectIn || `[IR] ${ref}${issue.hub ? ' · ' + issue.hub : ''}`,
       text, html
     });
-    await logEvent(req.params.id, 'sent_to_ir', req.user, { note, to: IR_TEAM_EMAIL }, now);
+    await logEvent(req.params.id, 'sent_to_ir', req.user, { note, subject: subjectIn || null, to: IR_TEAM_EMAIL }, now);
     res.json({ ok: true, to: IR_TEAM_EMAIL });
   } catch (err) {
     console.error('send-to-ir failed:', err);
