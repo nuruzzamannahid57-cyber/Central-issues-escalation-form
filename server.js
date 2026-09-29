@@ -19,6 +19,7 @@ const {
   SMTP_USER,
   SMTP_PASS,
   MAIL_FROM,
+  IR_TEAM_EMAIL = 'issue.resolution@carrybee.com',
   DAILY_REPORT_CRON = '59 23 * * *',
   DAILY_REPORT_TZ = 'Asia/Dhaka',
   DAILY_REPORT_ENABLED = 'true'
@@ -662,6 +663,65 @@ app.patch('/api/issues/:id/reprocess', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not re-process issue.' });
+  }
+});
+
+// "Send to IR": the KAM writes a note and it is emailed to the IR (Issue
+// Resolution) team with the issue's key facts attached. Gmail/SMTP will not
+// let a server send AS another person's address, so the mail goes out from the
+// configured SMTP account with the KAM's display name, and Reply-To is the
+// KAM's login email: IR just hits Reply and it goes straight to the KAM.
+// Same ownership rule as Close / Re-process (only the KAM who logged it).
+function irEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+app.post('/api/issues/:id/send-to-ir', requireAuth, async (req, res) => {
+  try {
+    const note = String((req.body || {}).details || '').trim();
+    if (note.length < 3) return res.status(400).json({ error: 'Write the details to send to the IR team.' });
+    if (note.length > 3000) return res.status(400).json({ error: 'Details are too long (max 3000 characters).' });
+    const existing = await db.execute({ sql: 'SELECT * FROM issues WHERE id = ?', args: [req.params.id] });
+    const issue = existing.rows[0];
+    if (!issue) return res.status(404).json({ error: 'Issue not found.' });
+    if ((issue.logged_by || '').toLowerCase() !== req.user.toLowerCase()) {
+      return res.status(403).json({ error: 'You can only send issues you logged yourself to IR.' });
+    }
+    const transport = getMailer();
+    if (!transport) return res.status(503).json({ error: 'Email is not configured on the server (SMTP settings missing).' });
+
+    const who = await db.execute({ sql: 'SELECT name FROM users WHERE email = ?', args: [req.user] });
+    const name = (who.rows[0] && who.rows[0].name) || req.user;
+    const now = new Date().toISOString();
+    const ref = issue.consignment || issue.id;
+    const rows = [
+      ['Consignment', issue.consignment], ['Hub', issue.hub], ['Zone', issue.zone],
+      ['Category', [issue.category, issue.subcategory].filter(Boolean).join(' / ')],
+      ['Status', issue.status], ['Logged by', `${name} (${req.user})`],
+      ['Original details', issue.details], ['Hub / OPS remark', issue.remarks]
+    ].filter(r => r[1]);
+    const html = `
+      <div style="font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;">
+        <p style="margin:0 0 6px;"><b>${irEsc(name)}</b> (${irEsc(req.user)}) sent an issue to the IR team.</p>
+        <div style="margin:12px 0;padding:12px 14px;background:#FFF8D6;border-left:4px solid #FFCC00;white-space:pre-wrap;">${irEsc(note)}</div>
+        <table style="border-collapse:collapse;width:100%;font-size:13px;">
+          ${rows.map(r => `<tr><td style="padding:6px 8px;border:1px solid #ddd;background:#f6f6f6;width:150px;"><b>${irEsc(r[0])}</b></td><td style="padding:6px 8px;border:1px solid #ddd;white-space:pre-wrap;">${irEsc(r[1])}</td></tr>`).join('')}
+        </table>
+        <p style="color:#888;font-size:12px;margin-top:14px;">Reply to this email to reach ${irEsc(name)} directly.</p>
+      </div>`;
+    const text = `${name} (${req.user}) sent an issue to the IR team.\n\n${note}\n\n` + rows.map(r => `${r[0]}: ${r[1]}`).join('\n');
+
+    await transport.sendMail({
+      from: `"${String(name).replace(/"/g, '')} via Carrybee" <${SMTP_USER}>`,
+      replyTo: `"${String(name).replace(/"/g, '')}" <${req.user}>`,
+      to: IR_TEAM_EMAIL,
+      subject: `[IR] ${ref}${issue.hub ? ' · ' + issue.hub : ''}`,
+      text, html
+    });
+    await logEvent(req.params.id, 'sent_to_ir', req.user, { note, to: IR_TEAM_EMAIL }, now);
+    res.json({ ok: true, to: IR_TEAM_EMAIL });
+  } catch (err) {
+    console.error('send-to-ir failed:', err);
+    res.status(500).json({ error: 'Could not send the email. Check the SMTP settings.' });
   }
 });
 
