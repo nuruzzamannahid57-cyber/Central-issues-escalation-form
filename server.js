@@ -46,7 +46,7 @@ app.use(cors());
 // Raised from the default 100kb so photo/audio attachments (sent as base64
 // data URLs in the issue payload) fit. 20mb of base64 ~= 14-15mb of real
 // file data, comfortably above what a phone photo or a short voice note needs.
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({ limit: '25mb' }));
 app.use(express.static(__dirname));
 
 // ---------- in-memory session store ----------
@@ -454,10 +454,14 @@ app.post('/api/issues', requireAuthOrService, async (req, res) => {
   // Attachments come in as [{ type: 'photo'|'audio', filename, mimeType, dataUrl }].
   // Validated loosely here — the point is to reject obvious garbage, not to
   // be a full MIME sniffer.
+  const ATTACH_TYPES = ['photo', 'audio', 'video', 'pdf', 'doc', 'sheet', 'csv', 'slides'];
   let attachments = null;
+  if (Array.isArray(i.attachments) && i.attachments.reduce((n, a) => n + String((a && a.dataUrl) || '').length, 0) > 20e6) {
+    return res.status(413).json({ error: 'Attachments are too large in total.' });
+  }
   if (Array.isArray(i.attachments) && i.attachments.length) {
     const cleaned = i.attachments
-      .filter(a => a && typeof a.dataUrl === 'string' && a.dataUrl.startsWith('data:') && ['photo', 'audio'].includes(a.type))
+      .filter(a => a && typeof a.dataUrl === 'string' && a.dataUrl.startsWith('data:') && ATTACH_TYPES.includes(a.type))
       .map(a => ({ type: a.type, filename: a.filename || null, mimeType: a.mimeType || null, dataUrl: a.dataUrl }));
     if (cleaned.length) attachments = JSON.stringify(cleaned);
   }
