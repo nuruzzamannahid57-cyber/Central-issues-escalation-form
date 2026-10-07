@@ -63,6 +63,31 @@ select:disabled{opacity:.5;cursor:not-allowed}textarea{min-height:110px;resize:v
 .chip img,.chip i{width:34px;height:34px;border-radius:6px;object-fit:cover;display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--text-dim)}
 .chip span{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim)}
 .chip button{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:0;border-radius:8px;color:var(--text-faint);cursor:pointer}.chip button:hover{color:var(--red);background:var(--surface)}
+.hoopz{position:relative;height:260px;border:1.5px dashed var(--border);border-radius:12px;overflow:hidden;cursor:pointer;text-align:center;user-select:none;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background-color .15s}
+.hoopz:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.hoopz.over{border-color:var(--ink);background:var(--accent-soft)}
+:root[data-theme=dark] .hoopz.over{border-color:var(--brand)}
+.hoopz .lbl2{position:absolute;top:14px;left:0;right:0;pointer-events:none;font:600 13.5px 'Inter',sans-serif;color:var(--text)}
+.hoopz .lbl2 span{display:block;font-weight:400;font-size:12.5px;color:var(--text-faint);margin-top:2px}
+.hoopz svg.hp{position:absolute;left:50%;top:58px;width:120px;height:152px;transform:translateX(-50%);pointer-events:none;overflow:visible}
+.hoopz svg.fr{z-index:3}
+.hoopz .net{transform-origin:50% 0;transform-box:fill-box}.hoopz .net.swish{animation:hz-swish .7s ease-out}
+@keyframes hz-swish{25%{transform:scale(.9,1.18)}50%{transform:scale(1.05,.94)}}
+.hoopz svg.aim{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:0;transition:opacity .15s}
+.hoopz svg.aim.on{opacity:1}
+.hoopz svg.aim path{fill:none;stroke:var(--accent-ink);stroke-width:3;stroke-dasharray:2 9;stroke-linecap:round}
+.hoopz svg.aim circle{fill:none;stroke:var(--accent-ink);stroke-width:2.5;transform-box:fill-box;transform-origin:center;animation:hz-pulse 1s ease-in-out infinite}
+.hoopz svg.aim.lock path,.hoopz svg.aim.lock circle{stroke:var(--green,#2E7D32)}
+@keyframes hz-pulse{50%{transform:scale(1.18);opacity:.55}}
+.hoopz .stage{position:absolute;inset:0;pointer-events:none;z-index:2}
+.hoopz .sprite{position:absolute;left:0;top:0;width:30px;height:38px;border-radius:6px;background:var(--surface);border:2px solid var(--accent-ink);display:grid;place-items:center;font:700 9px 'Inter',sans-serif;color:var(--accent-ink);box-shadow:0 6px 14px rgba(0,0,0,.2);pointer-events:none;will-change:transform}
+.hoopz .ghost{display:none;z-index:4}
+.hoopz .score{position:absolute;top:44px;left:0;right:0;font:800 20px 'Inter',sans-serif;color:var(--green,#2E7D32);opacity:0;pointer-events:none;z-index:4}
+.hoopz .score.go{animation:hz-pop 1s ease-out}
+@keyframes hz-pop{0%{opacity:0;transform:translateY(12px) scale(.7)}25%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-12px)}}
+.hoopz .zbtns{position:absolute;left:0;right:0;bottom:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;z-index:5;cursor:default}
+@media (prefers-reduced-motion:reduce){.hoopz .net.swish,.hoopz .score.go,.hoopz svg.aim circle{animation:none}}
+.chip i{font:700 9.5px 'Inter',sans-serif;letter-spacing:.02em}
 /* buttons */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 26px;background:var(--brand);color:var(--ink);border:1px solid var(--brand);border-radius:10px;font:700 14.5px 'Inter',sans-serif;cursor:pointer;transition:filter .15s,transform .1s}
 .btn:hover{filter:brightness(.94)}.btn:active{transform:translateY(1px)}.btn:disabled{opacity:.6;cursor:progress}
@@ -192,21 +217,47 @@ function Login({onDone}){
 const EMPTY={consignment:'',channel:'',media:'',social:[],zone:'',hub:'',status:'',category:'',subcategory:'',details:''};
 function IssueForm({token,onExpire}){
   const [f,setF]=useState(EMPTY),[files,setFiles]=useState([]),[msg,setMsg]=useState({t:'',c:''}),[busy,setBusy]=useState(false),[over,setOver]=useState(false);
-  const photoRef=useRef(),audioRef=useRef();
+  const photoRef=useRef(),audioRef=useRef(),fileRef=useRef(),zoneRef=useRef(),stageRef=useRef(),aimSvgRef=useRef(),aimPathRef=useRef(),aimRingRef=useRef(),netRef=useRef(),scoreRef=useRef(),ghostRef=useRef(),aimRef=useRef(),totalRef=useRef(0);
   const set=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   const isMedia=MEDIA_CH.includes(f.channel),isSocial=f.channel==='Social Media';
   const say=(t,c='')=>setMsg({t,c});
   const chan=e=>{const channel=e.target.value;setF(p=>({...p,channel,media:MEDIA_CH.includes(channel)?p.media:'',social:channel==='Social Media'?p.social:[]}))};
   const toggleSocial=v=>setF(p=>({...p,social:p.social.includes(v)?p.social.filter(x=>x!==v):[...p.social,v]}));
-  const addFiles=async(list,type)=>{
-    for(const file of Array.from(list)){
-      const cap=type==='photo'?MAX_PHOTO_RAW_BYTES:MAX_AUDIO_BYTES;
-      if(file.size>cap){say(`${file.name} is too large (max ${Math.round(cap/1048576)}MB).`,'err');continue}
-      try{const dataUrl=type==='photo'?await compressImage(file,1280):await fileToDataUrl(file);
-        setFiles(p=>[...p,{type,filename:file.name,mimeType:type==='photo'?'image/jpeg':file.type,dataUrl}])}
-      catch{say(`Could not read ${file.name}.`,'err')}}};
-  const drop=e=>{e.preventDefault();setOver(false);const l=Array.from(e.dataTransfer.files||[]);
-    addFiles(l.filter(x=>x.type.startsWith('image/')),'photo');addFiles(l.filter(x=>x.type.startsWith('audio/')),'audio')};
+  const EXT={photo:['jpg','jpeg','png','gif','webp','heic','heif','bmp','avif'],audio:['mp3','wav','m4a','aac','ogg','oga','opus','amr','weba','flac'],video:['mp4','mov','webm','mkv','avi','3gp','m4v'],pdf:['pdf'],doc:['doc','docx','rtf','odt'],sheet:['xls','xlsx','xlsm','ods'],csv:['csv','tsv'],slides:['ppt','pptx','pps','ppsx','odp']};
+  const MIME_EXT={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',rtf:'application/rtf',xls:'application/vnd.ms-excel',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',csv:'text/csv',ppt:'application/vnd.ms-powerpoint',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation'};
+  const CAP_MB={photo:20,audio:8,video:12,pdf:8,doc:8,sheet:8,csv:8,slides:10},MAX_TOTAL=18e6; // MB raw per file; total base64 chars per issue (server limit is 25mb)
+  const extOf=n=>(String(n).split('.').pop()||'').toLowerCase();
+  const kindOf=f=>{if(f.type.startsWith('image/'))return'photo';if(f.type.startsWith('audio/'))return'audio';if(f.type.startsWith('video/'))return'video';const e=extOf(f.name);for(const k in EXT)if(EXT[k].includes(e))return k;return null};
+  const extLabel=a=>(extOf(a.filename||'')||a.type).slice(0,4).toUpperCase();
+  const HOOP_Y=127,HOOP_TOP=104,reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const place=(el,x,y,s=1,r=0)=>{el.style.transform=`translate(${x-15}px,${y-19}px) rotate(${r}deg) scale(${s})`};
+  const arc=(x0,y0,t)=>{const peak=Math.min(y0,HOOP_TOP)-70,hx=zoneRef.current.clientWidth/2;return[x0+(hx-x0)*t,y0+(HOOP_TOP-y0)*t-4*(y0-peak)*t*(1-t)*.6]};
+  const drawAim=(x0,y0)=>{const hx=zoneRef.current.clientWidth/2;let d='';
+    for(let i=0;i<=24;i++){const[x,y]=arc(x0,y0,i/24);d+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}
+    aimPathRef.current.setAttribute('d',d);aimRingRef.current.setAttribute('cx',hx);aimRingRef.current.setAttribute('cy',HOOP_Y-6);
+    aimSvgRef.current.classList.add('on');aimSvgRef.current.classList.toggle('lock',Math.hypot(x0-hx,y0-(HOOP_Y-6))<70)};
+  const resetAim=()=>{setOver(false);aimSvgRef.current.classList.remove('on','lock');ghostRef.current.style.display='none'};
+  const prepare=async file=>{
+    const type=kindOf(file);if(!type)throw new Error(`${file.name}: file type not supported.`);
+    if(file.size>CAP_MB[type]*1048576)throw new Error(`${file.name} is too large (max ${CAP_MB[type]}MB).`);
+    let dataUrl,mimeType=file.type||MIME_EXT[extOf(file.name)]||'application/octet-stream';
+    if(type==='photo'){try{dataUrl=await compressImage(file,1280);mimeType='image/jpeg'}catch{dataUrl=await fileToDataUrl(file)}}else dataUrl=await fileToDataUrl(file);
+    if(totalRef.current+dataUrl.length>MAX_TOTAL)throw new Error('Attachments are too big in total — remove one first.');
+    totalRef.current+=dataUrl.length;return{type,filename:file.name,mimeType,dataUrl}};
+  const shoot=(att,from,done)=>{
+    const z=zoneRef.current,sp=document.createElement('div');sp.className='sprite';sp.textContent=extLabel(att);stageRef.current.appendChild(sp);
+    const hx=z.clientWidth/2,x0=from?from.x:hx+(Math.random()*100-50),y0=from?from.y:z.clientHeight-40,T1=reduce?1:620,T2=reduce?1:360,t0=performance.now();
+    const f1=now=>{const t=Math.min((now-t0)/T1,1),[x,y]=arc(x0,y0,t);place(sp,x,y,1-.15*t,t*360);if(t<1)return requestAnimationFrame(f1);
+      const s2=performance.now(),f2=n=>{const u=Math.min((n-s2)/T2,1);place(sp,hx,HOOP_TOP+(HOOP_Y+50-HOOP_TOP)*u*u,.85-.35*u,360);sp.style.opacity=1-Math.max(0,u-.6)*2.5;
+        if(u<1)return requestAnimationFrame(f2);sp.remove();
+        for(const [r,c] of [[scoreRef,'go'],[netRef,'swish']]){const e=r.current;e.classList.remove(c);void e.getBoundingClientRect();e.classList.add(c)}
+        done()};requestAnimationFrame(f2)};requestAnimationFrame(f1)};
+  const handle=(list,from)=>Array.from(list).forEach((file,i)=>setTimeout(async()=>{
+    try{const att=await prepare(file);shoot(att,from,()=>setFiles(p=>[...p,att]))}catch(e){say(e.message||`Could not read ${file.name}.`,'err')}},i*350));
+  const rm=i=>{totalRef.current-=files[i].dataUrl.length;setFiles(p=>p.filter((_,j)=>j!==i))};
+  const dragOver=e=>{e.preventDefault();if(!over)setOver(true);const r=zoneRef.current.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;aimRef.current={x,y};place(ghostRef.current,x,y,1,-8);ghostRef.current.style.display='grid';drawAim(x,y)};
+  const dragLeave=e=>{if(e.relatedTarget&&zoneRef.current.contains(e.relatedTarget))return;resetAim()};
+  const drop=e=>{e.preventDefault();const from=aimRef.current;resetAim();handle(e.dataTransfer.files||[],from)};
   const submit=async e=>{e.preventDefault();
     if(isSocial&&!f.social.length){say('Select at least one Social Media source.','err');return}
     setBusy(true);say('Saving…');
@@ -214,7 +265,7 @@ function IssueForm({token,onExpire}){
     try{const r=await fetch(`${API_BASE}/api/issues`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify(issue)});
       const d=await r.json();
       if(!r.ok){if(r.status===401){say('Session expired — please sign in again.','err');onExpire();return}say(d.error||'Could not save — try again.','err');setBusy(false);return}
-      say('Issue logged.','ok');setF(EMPTY);setFiles([]);setBusy(false);setTimeout(()=>say(''),3000)}
+      say('Issue logged.','ok');setF(EMPTY);setFiles([]);totalRef.current=0;setBusy(false);setTimeout(()=>say(''),3000)}
     catch{say('Could not reach the server — try again.','err');setBusy(false)}};
   const hubs=HUB_MAP[f.zone]||[],subs=CATEGORY_MAP[f.category]||[];
   return html`<div className="card">
@@ -240,15 +291,23 @@ function IssueForm({token,onExpire}){
     </div></section>
     <section className="sec"><h2>Details</h2><div className="grid">
       <${Field} id="f-details" label="Issue Details" req full><textarea id="f-details" required placeholder="What happened? Include any context the assignee will need." value=${f.details} onChange=${set('details')}/><//>
-      <div className="field full"><span className="lbl">Attachments <span className="hint">Photo or voice note, optional</span></span>
-        <div className=${'drop'+(over?' over':'')} onDragOver=${e=>{e.preventDefault();setOver(true)}} onDragEnter=${e=>{e.preventDefault();setOver(true)}} onDragLeave=${()=>setOver(false)} onDrop=${drop}>
-          <input ref=${photoRef} type="file" accept="image/*" capture="environment" multiple hidden onChange=${e=>{addFiles(e.target.files,'photo');e.target.value=''}}/>
-          <input ref=${audioRef} type="file" accept="audio/*" capture multiple hidden onChange=${e=>{addFiles(e.target.files,'audio');e.target.value=''}}/>
-          <div className="row"><button type="button" className="icon-btn" onClick=${()=>photoRef.current.click()}><${Ic} n="camera"/>Add photo</button>
+      <div className="field full"><span className="lbl">Attachments <span className="hint">Photo, voice, video, PDF, Word, Excel, CSV, PowerPoint — optional</span></span>
+        <input ref=${photoRef} type="file" accept="image/*" capture="environment" multiple hidden onChange=${e=>{handle(e.target.files);e.target.value=''}}/>
+        <input ref=${audioRef} type="file" accept="audio/*" capture multiple hidden onChange=${e=>{handle(e.target.files);e.target.value=''}}/>
+        <input ref=${fileRef} type="file" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.rtf,.odt,.xls,.xlsx,.xlsm,.ods,.csv,.tsv,.ppt,.pptx,.pps,.ppsx,.odp" multiple hidden onChange=${e=>{handle(e.target.files);e.target.value=''}}/>
+        <div ref=${zoneRef} className=${'hoopz'+(over?' over':'')} tabIndex="0" role="button" aria-label="Attach files. Drop files here or press Enter to choose." onClick=${()=>fileRef.current.click()} onKeyDown=${e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fileRef.current.click()}}} onDragOver=${dragOver} onDragEnter=${e=>e.preventDefault()} onDragLeave=${dragLeave} onDrop=${drop}>
+          <div className="lbl2">${over?'Release to shoot!':'Drop files here'}<span>or drag them in and aim at the ring</span></div>
+          <svg className="hp" viewBox="0 0 150 190" aria-hidden="true"><rect x="25" y="0" width="100" height="70" rx="8" fill="var(--surface)" stroke="var(--border)" strokeWidth="2"/><rect x="55" y="26" width="40" height="30" rx="3" fill="none" stroke="var(--brand)" strokeWidth="2.5"/><line x1="75" y1="70" x2="75" y2="82" stroke="var(--text-faint)" strokeWidth="3"/><ellipse cx="75" cy="86" rx="46" ry="9" fill="none" stroke="var(--brand)" strokeWidth="4" opacity=".6"/></svg>
+          <svg ref=${aimSvgRef} className="aim" aria-hidden="true"><path ref=${aimPathRef}/><circle ref=${aimRingRef} r="30"/></svg>
+          <div ref=${stageRef} className="stage"></div>
+          <svg className="hp fr" viewBox="0 0 150 190" aria-hidden="true"><g ref=${netRef} className="net" stroke="var(--text-faint)" strokeWidth="1.4" fill="none"><path d="M30 90 L52 160 M44 94 L60 160 M60 97 L67 160 M75 98 L75 160 M90 97 L83 160 M106 94 L90 160 M120 90 L98 160"/><path d="M35 108 Q75 120 115 108 M40 124 Q75 134 110 124 M46 142 Q75 150 104 142 M52 160 Q75 166 98 160"/></g><path d="M29 86 Q75 106 121 86" fill="none" stroke="var(--brand)" strokeWidth="4.5" strokeLinecap="round"/></svg>
+          <div ref=${ghostRef} className="sprite ghost">FILE</div>
+          <div ref=${scoreRef} className="score">Swish!</div>
+          <div className="zbtns" onClick=${e=>e.stopPropagation()}><button type="button" className="icon-btn" onClick=${()=>photoRef.current.click()}><${Ic} n="camera"/>Add photo</button>
             <button type="button" className="icon-btn" onClick=${()=>audioRef.current.click()}><${Ic} n="mic"/>Add voice note</button></div>
-          <p>or drag and drop files here</p></div>
-        <div className="chips">${files.map((a,i)=>html`<div key=${i} className="chip">${a.type==='photo'?html`<img src=${a.dataUrl} alt=""/>`:html`<i><${Ic} n="mic" s=${16}/></i>`}
-          <span>${a.filename||a.type}</span><button type="button" aria-label=${'Remove '+(a.filename||a.type)} onClick=${()=>setFiles(p=>p.filter((_,j)=>j!==i))}><${Ic} n="x" s=${16}/></button></div>`)}</div></div>
+        </div>
+        <div className="chips">${files.map((a,i)=>html`<div key=${i} className="chip">${a.type==='photo'?html`<img src=${a.dataUrl} alt=""/>`:html`<i>${a.type==='audio'?html`<${Ic} n="mic" s=${16}/>`:extLabel(a)}</i>`}
+          <span>${a.filename||a.type}</span><button type="button" aria-label=${'Remove '+(a.filename||a.type)} onClick=${()=>rm(i)}><${Ic} n="x" s=${16}/></button></div>`)}</div></div>
     </div></section>
     <div className="submit"><button type="submit" className="btn" disabled=${busy}>Log issue</button><span className=${'msg '+msg.c} role="status" aria-live="polite">${msg.t}</span></div>
   </form>
